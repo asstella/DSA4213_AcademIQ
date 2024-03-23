@@ -2,12 +2,29 @@ from h2o_wave import main, app, Q, ui, on, run_on
 import concurrent.futures
 from file_handler import parse_file
 
+# keep track of whether file was uploaded
+files = None
+
+args = []
+def user_on_page(q: Q):
+    """Keep track of the page the user is on before file upload."""
+    if 'upload' not in str(q.args):
+        args.append(str(q.args))
+
 @on('upload_files')
 async def upload_files(q: Q) -> None:
     """Triggered when user clicks the Upload button in the file upload widget."""
     # pass file through processing pipeline to create the knowledge graph
     with concurrent.futures.ProcessPoolExecutor() as pool:
         documents = await q.exec(pool, parse_file, q.args.upload_files)
+        global files
+        files = q.args.upload_files
+
+        # display on the page the user is at only
+        question_generator(q)
+        if len(args) != 0:
+            if 'knowledge_graph' in args[-1]:
+                knowledge_graph(q)
     # TODO: Do word processing for each document and generate knowledge graph
     # TODO: Create graph in database with parsed files
 
@@ -17,6 +34,12 @@ def question_generator(q: Q):
     q.page['question_generator'] = ui.form_card(box='content', items=[
             ui.text_xl('Questions'),
     ])
+    user_on_page(q)
+    if files:
+        q.page['question_generator'] = ui.form_card(box='content', items=[
+                ui.text_xl(f'Question Generator: {files}')
+        ])
+
 
 # display knowledge graph
 def knowledge_graph(q: Q):
@@ -24,6 +47,11 @@ def knowledge_graph(q: Q):
     q.page['knowledge_graph'] = ui.form_card(box='content', items=[
             ui.text_xl('Knowledge Graph'),
     ])
+    user_on_page(q)
+    if files:
+        q.page['knowledge_graph'] = ui.form_card(box='content', items=[
+                ui.text_xl(f'Knowledge Graph: {files}')
+        ])
 
 def init(q: Q):
     q.page['meta'] = ui.meta_card(box='', title='AcademIQ', theme='nord', layouts=[
