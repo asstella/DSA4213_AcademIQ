@@ -5,3 +5,4 @@ nltk==3.8.1
 numpy==1.26.4
 gensim==4.3.2
 pyLDAvis==3.4.1
+h2ogpte==1.4.9
