@@ -4,7 +4,7 @@ import os
 
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.get_env("NEO4J_PASSWORD", "password")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 NEO4J_DATABASE = "neo4j"
 
 def init():
@@ -54,30 +54,42 @@ def get_topic_chunks(topic_key: str):
     driver.close()
     return relevant_chunks
 
+def get_topic_graph():
+    graph = {}
+    driver = GraphDatabase.driver(NEO4J_URI, database=NEO4J_DATABASE, auth=(NEO4J_USER, NEO4J_PASSWORD))
+    with driver.session() as session:
+        result = session.run("MATCH (t:Topic) OPTIONAL MATCH (t)-[r:TOPIC]->(s:Topic) RETURN t, r, s;")
+        print(result.values())
+        # for record in result.values():
+        #     graph[record['t']] = {'relationships': record['relationship'], 'subtopics': record['s']}
+    driver.close()
+    return graph
+
 # Test code
-# if __name__ == "__main__":
-#     # Initialize the database schema
-#     init()
+if __name__ == "__main__":
+    # Initialize the database schema
+    # init()
 
-#     # Mock document data
-#     document = {
-#         'file': 'file.pdf',
-#         'chunks': [
-#             {'text': 'This is the first chunk of text.', 'embedding': [0.1, 0.2, 0.3]},
-#             {'text': 'This is the second chunk of text.', 'embedding': [0.4, 0.5, 0.6]},
-#             {'text': 'This is the third chunk of text.', 'embedding': [0.7, 0.8, 0.9]}
-#         ]
-#     }
+    # Mock document data
+    document = {
+        'file': 'file.pdf',
+        'chunks': [
+            {'text': 'This is the first chunk of text.', 'embedding': [0.1, 0.2, 0.3]},
+            {'text': 'This is the second chunk of text.', 'embedding': [0.4, 0.5, 0.6]},
+            {'text': 'This is the third chunk of text.', 'embedding': [0.7, 0.8, 0.9]}
+        ]
+    }
 
-#     # Assume 'topic1' is a pre-existing topic in the database. 
-#     # In a real scenario, you would also have functions to add topics and subtopics.
-#     topics = ['topic1']
+    # Assume 'topic1' is a pre-existing topic in the database. 
+    # In a real scenario, you would also have functions to add topics and subtopics.
+    topics = ['topic1']
 
-#     # Add the document to the graph
-#     add_document(document, topics)
+    # Add the document to the graph
+    add_document(document, topics)
 
-#     # Retrieve chunks for 'topic1'
-#     chunks = get_topic_chunks('topic1')
-#     print("Retrieved chunks for topic 'topic1':")
-#     for chunk in chunks:
-#         print(chunk)
+    get_topic_graph()
+    # Retrieve chunks for 'topic1'
+    chunks = get_topic_chunks('topic1')
+    print("Retrieved chunks for topic 'topic1':")
+    for chunk in chunks:
+        print(chunk)
