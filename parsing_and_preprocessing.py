@@ -22,10 +22,10 @@ def parse_file(filepaths: list[str]):
     return all_text
 
 # test code
-dir = os.getcwd()
-file = os.path.join(dir, "test.pdf")
-uploaded_text = parse_file([file])
-print(uploaded_text)
+# dir = os.getcwd()
+# file = os.path.join(dir, "test.pdf")
+# uploaded_text = parse_file([file])
+# print(uploaded_text)
 
 #Function to preprocess text
 def preprocess_text(text):
@@ -49,14 +49,15 @@ def preprocess_text(text):
     return tokens
 
 #Function to preprocess input document
-def preprocess_document(text):
-    processed_text = preprocess_text(text)
-    filename = os.path.basename(file) #retrieve filename
+def preprocess_document(file_path):
+    uploaded_text = parse_file([file_path])
+    processed_text = preprocess_text(uploaded_text)
+    filename = os.path.basename(file_path) #retrieve filename
 
     processed_document = {}
 
     processed_document["Filename"] = filename
-    processed_document["Original_text"] = text
+    processed_document["Original_text"] = uploaded_text
     processed_document["Processed_text"] = processed_text
 
     # print(f"Filename: {processed_document['Filename']}")
@@ -65,8 +66,9 @@ def preprocess_document(text):
 
     return processed_document
 
-processed = preprocess_document(uploaded_text)
-print(processed)
+# test code
+# processed = preprocess_document(uploaded_text)
+# print(processed)
 
 # Save processed text into a text file
 def value_to_file(dictionary, key, filename):
@@ -78,4 +80,5 @@ def value_to_file(dictionary, key, filename):
     else:
         print(f"Processed text not found in dictionary.")
 
-value_to_file(processed, "Processed_text", "processedtext.txt")
+# test code
+# value_to_file(processed, "Processed_text", "processedtext.txt")

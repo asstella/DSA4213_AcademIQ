@@ -15,35 +15,32 @@ def text_summariser(text_content: str):
     return summary.content
 
 
+def get_topic_summary(text_document: str):
+    with open(text_document, "r", encoding="utf-8") as file:
+        text_content = file.read()
+    summary = text_summariser(text_content)
+    lines = summary.split('\n')
+
+    titles = []
+    paragraphs = []
+    for line in lines:
+        if line.startswith('Topic:'):
+            titles.append(line.strip())
+        else:
+            paragraphs.append(line.strip())
+
+    clean_paragraphs = [string.strip() for string in paragraphs if string.strip()]
+    return titles, clean_paragraphs
+
 ## test
 
-text_document = "processedtext.txt"
+# text_document = "processedtext.txt"
 
-with open(text_document, "r", encoding="utf-8") as file:
-    text_content = file.read()
+# print("Titles:")
+# for title in titles:
+#     print(title)
 
-
-summary = text_summariser(text_content)
-# print(summary)
-
-
-lines = summary.split('\n')
-
-titles = []
-paragraphs = []
-for line in lines:
-    if line.startswith('Topic:'):
-        titles.append(line.strip())
-    else:
-        paragraphs.append(line.strip())
-
-clean_paragraphs = [string.strip() for string in paragraphs if string.strip()]
-
-print("Titles:")
-for title in titles:
-    print(title)
-
-# Print all paragraphs
-print("\nParagraphs:")
-for paragraph in clean_paragraphs:
-    print(clean_paragraphs)
+# # Print all paragraphs
+# print("\nParagraphs:")
+# for paragraph in clean_paragraphs:
+#     print(paragraph)

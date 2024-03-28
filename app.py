@@ -1,6 +1,9 @@
 from h2o_wave import main, app, Q, ui, on, run_on
 import concurrent.futures
-from file_handler import parse_file
+# from file_handler import parse_file
+from parsing_and_preprocessing import parse_file, preprocess_document
+from h2ogpt import get_topic_summary
+import os
 
 # keep track of whether file was uploaded
 files = None
@@ -15,21 +18,28 @@ def user_on_page(q: Q):
 async def upload_files(q: Q) -> None:
     """Triggered when user clicks the Upload button in the file upload widget."""
     # pass file through processing pipeline to create the knowledge graph
-    with concurrent.futures.ProcessPoolExecutor() as pool:
-        documents = await q.exec(pool, parse_file, q.args.upload_files)
-        global files
-        files = q.args.upload_files
+    # with concurrent.futures.ProcessPoolExecutor() as pool:
+    #     documents = await q.exec(pool, parse_file, q.args.upload_files)
+    global files
+    files = q.args.upload_files
+    # print(files)
+    # parse document and preprocess 
+    # TODO: test if it works cos it doesnt work on windows (test by uploading file)
+    os.makedirs('tmp', exist_ok=True)
+    for filepath in files:
+        os.rename(filepath, os.path.join('tmp', filepath))
+        file_details = preprocess_document(os.path.relpath(filepath))
 
-        # display on the page the user is at only
-        question_generator(q)
-        if len(args) != 0:
-            if 'knowledge_graph' in args[-1]:
-                knowledge_graph(q)
+    # display on the page the user is at only
+    question_generator(q, file_details)
+    if len(args) != 0:
+        if 'knowledge_graph' in args[-1]:
+            knowledge_graph(q, file_details)
     # TODO: Do word processing for each document and generate knowledge graph
     # TODO: Create graph in database with parsed files
 
 # display MCQ questions
-def question_generator(q: Q):
+def question_generator(q: Q, file_details=None):
     del q.page['knowledge_graph']
     q.page['question_generator'] = ui.form_card(box='content', items=[
             ui.text_xl('Questions'),
@@ -42,15 +52,16 @@ def question_generator(q: Q):
 
 
 # display knowledge graph
-def knowledge_graph(q: Q):
+def knowledge_graph(q: Q, file_details=None):
     del q.page['question_generator']
     q.page['knowledge_graph'] = ui.form_card(box='content', items=[
             ui.text_xl('Knowledge Graph'),
     ])
     user_on_page(q)
+    processed_text = file_details['Processed_text']
     if files:
         q.page['knowledge_graph'] = ui.form_card(box='content', items=[
-                ui.text_xl(f'Knowledge Graph: {files}')
+                ui.text(f'{get_topic_summary(processed_text)}')
         ])
 
 def init(q: Q):
