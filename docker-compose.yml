@@ -31,3 +31,5 @@ services:
       - NEO4J_PASSWORD=password
     ports:
       - "10101:10101"
+    volumes:
+      - .:/app

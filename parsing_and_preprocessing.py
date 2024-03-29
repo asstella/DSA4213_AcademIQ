@@ -33,7 +33,7 @@ def preprocess_text(text):
     text = text.lower()
 
     # Remove punctuation and non-alphanumeric characters
-    text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
+    text = re.sub(r'[^a-zA-Z-2-9\s]', '', text)
 
     # Tokenization
     tokens = word_tokenize(text)

@@ -1,5 +1,4 @@
 from h2ogpte import H2OGPTE
-import re
 
 client = H2OGPTE(
     address='https://h2ogpte.genai.h2o.ai',
@@ -14,11 +13,9 @@ def text_summariser(text_content: str):
     )
     return summary.content
 
-
 def get_topic_summary(text_document: str):
-    with open(text_document, "r", encoding="utf-8") as file:
-        text_content = file.read()
-    summary = text_summariser(text_content)
+    summary = text_summariser(text_document)
+    topics = ["List", "Of", "Topics"] # TODO: remove placeholder with actual topic labels
     lines = summary.split('\n')
 
     titles = []
@@ -30,7 +27,7 @@ def get_topic_summary(text_document: str):
             paragraphs.append(line.strip())
 
     clean_paragraphs = [string.strip() for string in paragraphs if string.strip()]
-    return titles, clean_paragraphs
+    return topics, '\n\n'.join(clean_paragraphs)
 
 ## test
 
