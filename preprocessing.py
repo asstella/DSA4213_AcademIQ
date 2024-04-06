@@ -1,55 +1,54 @@
-import re
 import os
-from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
-from nltk.tokenize import word_tokenize
-from llmsherpa.readers import LayoutPDFReader
+from llmsherpa.readers import LayoutPDFReader, Document
+import requests
+import logging
 
-def parse_file(filepath):
-    # print(f'Received Files: {filepath}')
-    all_text = ''
-    # for filepath in filepaths:
-    reader = LayoutPDFReader("http://nlm_ingestor:5001/api/parseDocument?renderFormat=all")
-    documents = reader.read_pdf(filepath)
-    document_text = '\n'.join([c.to_text() for c in documents.chunks()]) # print every paragraph, header, table etc.
-    all_text += document_text + "\n" #add document text to accumulated string
-    return all_text
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+nlm_host = os.getenv('NLM_INGESTOR', 'localhost')
+ingestor_url = f"http://{nlm_host}:5001/api/parseDocument?renderFormat=all"
 
-#Function to preprocess text
-# def preprocess_text(text):
-#     # Convert to lowercase
-#     text = text.lower()
+def parse_file(filepath: str):
+    """
+    A function that parses a file based on its file type and returns a processed document.
 
-#     # Remove punctuation and non-alphanumeric characters
-#     text = re.sub(r'[^a-zA-Z-2-9\s]', '', text)
+    Args:
+    - filepath: a string representing the path to the file to be parsed
 
-#     # Tokenization
-#     tokens = word_tokenize(text)
-
-#     # Remove stopwords
-#     stop_words = set(stopwords.words('english'))
-#     tokens = [word for word in tokens if word not in stop_words]
-
-#     # Lemmatization
-#     lemmatizer = WordNetLemmatizer()
-#     tokens = [lemmatizer.lemmatize(token) for token in tokens]
-
-#     return tokens
-
-#Function to preprocess input document
-def preprocess_document(filepath):
-    uploaded_text = parse_file(filepath)
-    # processed_text = preprocess_text(uploaded_text)
-    filename = os.path.basename(filepath) #retrieve filename
+    Returns:
+    - processed_document: dictionary representing the processed document
+        - file: str, the filename
+        - chunks: list of str, the text chunks extracted from the document
+    """
+    filename = os.path.basename(filepath) # retrieve filename
+    if filename.endswith('.pdf'):
+        reader = LayoutPDFReader(ingestor_url)
+        document = reader.read_pdf(filepath)
+    elif filename.endswith('.docx') or filename.endswith('.pptx') or filename.endswith('.md') or filename.endswith('.txt'):
+        with open(filepath, 'rb') as f:
+            filedata = f.read()
+            files = { 'file': (filename, filedata, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') }
+        response = requests.post(ingestor_url, files=files)
+        if response.status_code == 200:
+            document = response.json()
+            document = Document(document['return_dict']['result']['blocks'])
+        else:
+            print(f'Request failed with status code {response.status_code}')
+    else:
+        print('Unsupported file type')
+        return
 
     processed_document = {}
-
     processed_document["file"] = filename
-    processed_document["text"] = uploaded_text
-    # processed_document["processed"] = processed_text
-
-    # print(f"Filename: {processed_document['Filename']}")
-    # print(f"Original Text: {processed_document['Original_text']}")
-    # print(f"Processed Text: {processed_document['Processed_text']}")
-
+    # document is split into chunks based on its outline. when using to_context_text,
+    # the first line in each chunk indicates the section the chunk belongs to
+    # eg. "root node > parent section > chunk section"
+    processed_document['chunks'] = [c.to_context_text() for c in document.chunks()]
+    # TODO: Split section header and raw chunk text into separate columns
     return processed_document
+
+def test_parse_file():
+    filepath = 'attention.pdf'
+    processed_document = parse_file(filepath)
+    logger.info(processed_document['file'])
+    logger.info('\n\n'.join(processed_document['chunks']))

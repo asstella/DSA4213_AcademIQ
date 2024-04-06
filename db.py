@@ -20,14 +20,14 @@ def init():
             session.run(cypher)
     driver.close()
 
-def add_document(document: dict, topics: list[str]):
+def add_document(document: dict, topics: list[dict]):
     driver = GraphDatabase.driver(NEO4J_URI, database=NEO4J_DATABASE, auth=(NEO4J_USER, NEO4J_PASSWORD))
     with driver.session() as session:
         doc_hash = hashlib.md5(document['file'].encode("utf-8")).hexdigest()
-        session.run("MERGE (d:Document {key: $key, filename: $filename, summary: $summary}) ON CREATE SET d.key = $key", key=doc_hash, filename=document['file'], summary=document['summary'])
-        for topic_key in topics:
-            session.run("MERGE (t:Topic {key: $key}) ON CREATE SET t.key = $key", key=topic_key)
-            session.run("MATCH (d:Document {key: $doc_key}), (t:Topic {key: $topic_key}) MERGE (d)-[:TOPIC]->(t)", doc_key=doc_hash, topic_key=topic_key)
+        session.run("MERGE (d:Document {key: $key, filename: $filename}) ON CREATE SET d.key = $key", key=doc_hash, filename=document['file'])
+        for topic in topics:
+            session.run("MERGE (t:Topic {key: $key, summary: $summary}) ON CREATE SET t.key = $key", key=topic['topic'], summary=topic['summary'])
+            session.run("MATCH (d:Document {key: $doc_key}), (t:Topic {key: $topic_key}) MERGE (d)-[:TOPIC]->(t)", doc_key=doc_hash, topic_key=topic['topic'])
     driver.close()
 
 def get_topic_graph():
