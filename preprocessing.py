@@ -5,8 +5,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-# TODO: Change hostname to nlm_ingestor when running wave app on docker compose
-ingestor_url = "http://localhost:5001/api/parseDocument?renderFormat=all"
+nlm_host = os.getenv('NLM_INGESTOR', 'localhost')
+ingestor_url = f"http://{nlm_host}:5001/api/parseDocument?renderFormat=all"
 
 def parse_file(filepath: str):
     """
