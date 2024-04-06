@@ -1,6 +1,6 @@
 from h2o_wave import main, app, Q, ui, on, run_on, site
-from preprocessing import preprocess_document
-from h2ogpt import get_topic_summary
+from preprocessing import parse_file
+from h2ogpt import extract_topics
 from db import add_document, get_topic_graph
 import os
 import json
@@ -102,37 +102,35 @@ function render(graph) {{
 render(JSON.parse('{data}'));
 '''
 
-args = []
-def user_on_page(q: Q):
-    """Keep track of the page the user is on before file upload."""
-    if 'upload' not in str(q.args):
-        args.append(str(q.args))
-
 @on('upload_files')
 async def upload_files(q: Q) -> None:
     """Triggered when user clicks the Upload button in the file upload widget."""
     for filepath in q.args.upload_files:
         local_path = await q.site.download(filepath, '.')
-        file_details = preprocess_document(local_path)
-        topics, summary = get_topic_summary(file_details['text'])
-        document = { 'file': file_details['file'], 'summary': summary }
+        document = parse_file(local_path)
+        topics = extract_topics(document['chunks'])
         add_document(document, topics)
-        # TODO: Do word processing for each document and generate knowledge graph
-        # TODO: Create graph in database with parsed files
+    # TODO: Add some form topic refinement to make sure similar topics are merged
 
     q.client.files = q.args.upload_files # keep track of whether file was uploaded
 
-    # display on the page the user is at only
-    if len(args) != 0:
-        if 'knowledge_graph' in args[-1]:
-            knowledge_graph(q)
+    if q.client.page == 'question_generator':
+        await question_generator(q)
+    elif q.client.page == 'knowledge_graph':
+        await knowledge_graph(q)
 
 @on()
 async def question_generator(q: Q):
+    q.client.page = 'question_generator'
     q.page['body'] = ui.form_card(box='content', items=[
             ui.text_xl('Questions'),
     ])
-    user_on_page(q)
+
+    # TODO: Display information about selected topics using q.client.selected_topics
+    # TODO: Add button to generate and display questions about selected topics using generate_questions
+    # TODO: Add chat interface to key in answers and get responses about correctness of answer
+
+    # TODO: Remove this once done testing file upload functionality
     if q.client.files:
         q.page['body'] = ui.form_card(box='content', items=[
                 ui.text_xl(f'Question Generator: {q.client.files}')
@@ -151,8 +149,10 @@ async def node_clicked(q: Q) -> None:
 
 @on()
 async def knowledge_graph(q: Q):
+    q.client.page = 'knowledge_graph'
     if not q.client.graph:
         # q.client.graph = get_topic_graph()
+        # TODO: Remove sample data for testing
         q.client.graph = {
             "nodes": [
                 {"id": 0, "label": "topic 1", "type": "topic", "summary": "topic 1 summary"},
@@ -164,13 +164,12 @@ async def knowledge_graph(q: Q):
     q.page['body'] = ui.form_card(box='content', items=[
             ui.text_xl('Knowledge Graph'),
     ])
-    user_on_page(q)
 
     content = '<div id="d3-chart" style="width: 100%; height: 100%"></div>'
     sections = [ui.markup(content=content)]
     if 'current_topic' in q.client:
         node = next(filter(lambda n: n.get('id', None) == q.client.current_topic, q.client.graph['nodes']))
-        sections.append(ui.text(node['summary']))
+        sections.append(ui.text(node['label']))
 
     q.page['body'] = ui.form_card(
         box='content',
@@ -211,7 +210,7 @@ def init(q: Q):
                 name='upload_files',
                 multiple=True,
                 required=True,
-                file_extensions=['pdf', 'docx'],
+                file_extensions=['pdf', 'docx', 'pptx', 'txt', 'md'],
             ),
         ]
     )
