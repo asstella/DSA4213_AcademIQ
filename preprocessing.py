@@ -5,7 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-nlm_host = os.getenv('NLM_INGESTOR', 'localhost')
+nlm_host = os.getenv('NLM_HOSTNAME', 'localhost')
 ingestor_url = f"http://{nlm_host}:5001/api/parseDocument?renderFormat=all"
 
 def parse_file(filepath: str):
