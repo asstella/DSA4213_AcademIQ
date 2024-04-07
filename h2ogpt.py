@@ -6,7 +6,7 @@ llm = "gpt-4-1106-preview"
 system_prompt = "You are an expert at identifying the key concepts and topics within paragraphs from academic documents, textbooks, and school notes of various formats. Always base your responses on well established academic concepts and topics taught in universities across various domains and fields of study."
 client = H2OGPTE(
     address='https://h2ogpte.genai.h2o.ai',
-    api_key='sk-a25XDdP6vOOFGxYO1kmrNmVHrQpuGTqLx7pbJlgUqIhSadCI'
+    api_key='' # replace with ur own api key so can see when testing
 )
 
 output_format = """

@@ -1,10 +1,11 @@
-from h2o_wave import main, app, Q, ui, on, run_on, site
+from h2o_wave import main, app, Q, ui, on, run_on, site, data
 from preprocessing import parse_file
-from h2ogpt import extract_topics
+from h2ogpt import extract_topics, client
 from db import add_document, get_topic_graph
 import os
 import json
 
+# for knowledge graph
 script = '''
 function render(graph) {{
     const container = d3.select("#d3-chart");
@@ -124,17 +125,53 @@ async def question_generator(q: Q):
     q.client.page = 'question_generator'
     q.page['body'] = ui.form_card(box='content', items=[
             ui.text_xl('Questions'),
+            ui.button(name='question_generator', label='Generate', primary=True),
+    ])
+    if q.args.question_generator:
+        q.page['body'] = ui.form_card(box='content', items=[
+            ui.text_xl('Questions'),
+            ui.button(name='question_generator', label='Generate', primary=True),
+            ui.text('Upload a document to generate questions!'),
     ])
 
     # TODO: Display information about selected topics using q.client.selected_topics
-    # TODO: Add button to generate and display questions about selected topics using generate_questions
-    # TODO: Add chat interface to key in answers and get responses about correctness of answer
 
-    # TODO: Remove this once done testing file upload functionality
     if q.client.files:
-        q.page['body'] = ui.form_card(box='content', items=[
-                ui.text_xl(f'Question Generator: {q.client.files}')
-        ])
+        # generate question for entire document
+        if q.args.question_generator: 
+            # TODO: replace with real data
+            if not q.client.qna:
+                q.client.qna = [
+                    {"id": 0, "question": "What is 1+1?", "answer": "2"},
+                    {"id": 1, "question": "How to draw a circle?","answer": "Use a pencil."}
+                ]
+            q.page['body'] = ui.form_card(box='content', items=[
+                    ui.text(item['question']) for item in q.client.qna] + 
+                    [ui.button(name='question_generator', label='Generate', primary=True),
+                ])
+            # generate question for specific topics
+            if q.client.selected_topics:
+                q.page['body'] = ui.form_card(box='content', items=[
+                ui.text_xl(f'Questions for topic(s): {q.client.selected_topics}'),
+                * [ui.text(item['question']) for item in q.client.qna], 
+                ui.button(name='question_generator', label='Generate', primary=True),
+            ])
+            q.page['body1'] = ui.chatbot_card(
+                box='content',
+                name='chatbot',
+                data = [],
+                generating=True,
+                events=['stop']
+            )
+            # TODO: make chatbot call backend properly its not sending qns into the collection!
+            if q.args.chatbot:
+                qna_str = json.dumps(q.client.qna)
+                tmp = q.client.upload('qna.txt', qna_str)
+                q.client.ingest_uploads(q.client.collection_id, [tmp])
+                with client.connect(q.client.chat_session_id) as session:
+                    reply = session.query(q.args.chatbot, timeout=60)
+                    q.page['body1'].data.append({'text': q.args.chatbot, 'from_user': True})
+                    q.page['body1'].data.append({'text': reply.content, 'from_user': False})
     await q.page.save()
 
 @on('graph.node_clicked')
@@ -149,6 +186,7 @@ async def node_clicked(q: Q) -> None:
 
 @on()
 async def knowledge_graph(q: Q):
+    del q.page['body1']
     q.client.page = 'knowledge_graph'
     if not q.client.graph:
         # q.client.graph = get_topic_graph()
@@ -225,6 +263,13 @@ def init(q: Q):
     # GLOBAL VARS
     q.client.initialized = True
     q.client.selected_topics = set() # set of selected topics by user
+    q.client.collection_id = client.create_collection(
+            name='AcademIQ',
+            description='Let user check answers for generated questions'
+        )
+    # Create a chat session
+    q.client.chat_session_id = client.create_chat_session(q.client.collection_id)
+
 
 @app('/')
 async def serve(q: Q) -> None:
