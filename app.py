@@ -1,5 +1,5 @@
 from h2o_wave import main, app, Q, ui, on, run_on, site, data
-# from preprocessing import parse_file
+from preprocessing import parse_file
 from h2ogpt import extract_topics, client
 from db import add_document, get_topic_graph
 import os
@@ -108,9 +108,9 @@ async def upload_files(q: Q) -> None:
     """Triggered when user clicks the Upload button in the file upload widget."""
     for filepath in q.args.upload_files:
         local_path = await q.site.download(filepath, '.')
-        # document = parse_file(local_path)
-        # topics = extract_topics(document['chunks'])
-        # add_document(document, topics)
+        document = parse_file(local_path)
+        topics = extract_topics(document['chunks'])
+        add_document(document, topics)
     # TODO: Add some form topic refinement to make sure similar topics are merged
 
     q.client.files = q.args.upload_files # keep track of whether file was uploaded
