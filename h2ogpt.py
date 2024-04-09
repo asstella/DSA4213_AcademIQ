@@ -6,21 +6,37 @@ llm = "gpt-4-1106-preview"
 system_prompt = "You are an expert at identifying the key concepts and topics within paragraphs from academic documents, textbooks, and school notes of various formats. Always base your responses on well established academic concepts and topics taught in universities across various domains and fields of study."
 client = H2OGPTE(
     address='https://h2ogpte.genai.h2o.ai',
-    api_key='sk-TWKnIrmzipizYxjsoxPQeU57ysOJxXHW8sqpWXAfCfiGUy6T'#'sk-hO1xQcpU7ygp7A92axWi4LSE9HD2qH5r9oceyBOfPG7ldnQh' # replace with ur own api key so can see when testing
+    api_key='' # replace with ur own api key so can see when testing
 )
 
 
-output_format = """
+extract_topic_output_format = """
 Here is an example output:
 [\
 {"topic": "Topic Modelling", "summary": "Topic modeling is a popular natural language processing technique used to create structured data from a collection of unstructured data. The technique enables businesses to learn the hidden semantic patterns portrayed by a text corpus and automatically identify the topics that exist inside it."}\
 {"topic": "In-context Learning", "summary": "In-context learning (ICL) is a technique where task demonstrations are integrated into the prompt in a natural language format. This approach allows pre-trained LLMs to address new tasks without the need forfine-tuning the model."}\
 ]"""
+
 summary_output_format = """
 Here is an example output:
 [\
 {"main_summary": "Topic modeling is a popular natural language processing technique used to create structured data from a collection of unstructured data. The technique enables businesses to learn the hidden semantic patterns portrayed by a text corpus and automatically identify the topics that exist inside it."}\
 ] """
+
+question_generator_output_format = """
+Here is an example output:
+[    
+    {
+        "topic": "Attention Mechanism",
+        "question": "What is a primary factor influencing the time required to implement an attention mechanism?",
+        "option 1": "The programming language used",
+        "option 2": "The complexity of the attention mechanism",
+        "option 3": "The size of the dataset",
+        "option 4": "The hardware specifications of the computer",
+        "correct option": "Option 2",
+        "explanation": "This is because more complex attention mechanisms, such as those involving multiple layers or intricate attention patterns, require more time to design, code, and integrate into a system compared to simpler attention mechanisms."
+    }]
+"""
 
 def extract_topics(context_list: list[str]):
     """
@@ -36,7 +52,7 @@ def extract_topics(context_list: list[str]):
         system_prompt=system_prompt,
         pre_prompt_extract="Extract a list of topics the following chunks of text have in common. The first line in each chunk indicates the location of the chunk within the document outline, separated by the symbol >. For each topic identified, provide a clear and coherent summary of the topic based on the relevant sections of the document.\n",
         text_context_list=context_list,
-        prompt_extract="Format the topics as a list of JSON objects with the following keys: topic, summary." + output_format,
+        prompt_extract="Format the topics as a list of JSON objects with the following keys: topic, summary." + extract_topic_output_format,
         llm=llm
     )
 
@@ -45,7 +61,7 @@ def extract_topics(context_list: list[str]):
         system_prompt=system_prompt,
         pre_prompt_extract="Given the extracted topics and summaries, combine any overlapping topics. If they are not overlapping, do not change it.\n",
         text_context_list=response1.content,
-        prompt_extract="Format the topics as a list of JSON objects with the following keys: topic, summary." + output_format,
+        prompt_extract="Format the topics as a list of JSON objects with the following keys: topic, summary." + extract_topic_output_format,
         llm=llm
     )
 
@@ -66,7 +82,7 @@ def summary(context_list: list[str]):
         system_prompt=system_prompt,
         pre_prompt_extract="Extract the main summary.\n",
         text_context_list=context_list,
-        prompt_extract="Format the topics as a list of JSON object with the following key: summary. There should only be one summary" + output_format,
+        prompt_extract="Format the topics as a list of JSON object with the following key: summary. There should only be one summary" + summary_output_format,
         llm=llm
     )
 
@@ -91,8 +107,23 @@ def generate_questions(topics: set[str]):
     Returns:
     - questions (list[dict]): list of generated questions
     """
-    # TODO: Retrieve list of documents from topics
-    pass
+
+    response = client.extract_data(
+        system_prompt=system_prompt,
+        pre_prompt_extract="Generate a question related to the following topic:\n",
+        text_context_list=topics,
+        prompt_extract="Format the questions as a list of JSON objects: topic, question, option 1, option 2, option 3, option 4, correct option, explanation." + question_generator_output_format,
+        llm=llm
+    )
+
+    questions = []
+    for record in response.content:
+        try:
+            questions.extend(json.loads(record))
+        except:
+            print("Error processing record:", record)
+    print(questions)
+    return questions
 
 # # APIs to look at
 # client.extract_data()
@@ -118,7 +149,19 @@ def test_summary_topics():
     processed_document = parse_file(filepath)
     summary(processed_document['chunks'])
 
+def test_question_generation():
+    generate_questions(topics = [
+        "Transformer Model Architecture",
+        "Self-Attention Mechanism",
+        "Multi-Head Attention",
+        "Positional Encoding",
+        "Model Generalization and Applications",
+        "Computational Efficiency",
+        "State-of-the-Art Performance"
+    ])
 
+# test_generate()
 #test_invalid_file()
 #test_summary_topics()
-# test_extract_topics()   
+# test_extract_topics()
+test_question_generation()
