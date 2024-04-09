@@ -1,5 +1,5 @@
 from h2o_wave import main, app, Q, ui, on, run_on, site, data
-from preprocessing import parse_file
+# from preprocessing import parse_file
 from h2ogpt import extract_topics, client
 from db import add_document, get_topic_graph
 import os
@@ -108,9 +108,9 @@ async def upload_files(q: Q) -> None:
     """Triggered when user clicks the Upload button in the file upload widget."""
     for filepath in q.args.upload_files:
         local_path = await q.site.download(filepath, '.')
-        document = parse_file(local_path)
-        topics = extract_topics(document['chunks'])
-        add_document(document, topics)
+        # document = parse_file(local_path)
+        # topics = extract_topics(document['chunks'])
+        # add_document(document, topics)
     # TODO: Add some form topic refinement to make sure similar topics are merged
 
     q.client.files = q.args.upload_files # keep track of whether file was uploaded
@@ -139,7 +139,7 @@ async def question_generator(q: Q):
     q.page['top'] = ui.form_card(box='content', items = topic_items)
     
     # display questions if available
-    if q.client.files and q.args.generate_button:
+    if q.client.files and (q.args.generate_button or q.client.show_chatbot):
         if not q.client.qna:
             # TODO: replace with real data
             q.client.qna = [
@@ -150,13 +150,15 @@ async def question_generator(q: Q):
         q.page['body1'] = ui.chatbot_card(
             box='content',
             name='chatbot',
-            data = data(fields='content from_user', t='list'),
+            data = data(fields='content from_user', t='list', rows=q.client.chatlog),
             generating=True,
             events=['stop']
         )
-        if len(topic_items) != 0:
-            # display different qna for specific topic
+        if q.client.selected_topics:
+            # display different qna for selected topics
             pass
+
+        q.client.show_chatbot = True
     
     # button to generate questions
     items.append(ui.button(name='generate_button', label='Generate', primary=True))
@@ -166,26 +168,30 @@ async def question_generator(q: Q):
 
 @on('generate_button')
 async def generate_button(q: Q):
+    # TODO: change to upload document depend on which topics user select and what h2o generates
+    if q.client.files:
+        qna_str = json.dumps(q.client.qna)
+        tmp = client.upload('qna.txt', qna_str) 
+        client.ingest_uploads(q.client.collection_id, [tmp])
     await question_generator(q)
 
 @on()
 async def chatbot(q: Q):
     '''
     Chatbot for user to verify their answers to the questions generated.
-    Displayed when user clicks on button to generate questions on question_generation page.
+    Displayed when user clicks on button to generate questions on question generation page.
     '''
-    qna_str = json.dumps(q.client.qna)
-    tmp = client.upload('qna.txt', qna_str)
-    client.ingest_uploads(q.client.collection_id, [tmp])
     with client.connect(q.client.chat_session_id) as session:
         # append user query to the chatbot
         q.page['body1'].data += [q.args.chatbot, True]
+        q.client.chatlog.append([q.args.chatbot])
         reply = session.query(q.args.chatbot, timeout=60)
         # stream response from h2ogpt
         stream = ''
         if not reply:
             print("No reply received")
         q.page['body1'].data += [reply.content, False]
+        q.client.chatlog.append([reply.content])
         for w in reply.content.split():
             await q.sleep(0.1)
             stream += w + ' '
@@ -296,7 +302,14 @@ def init(q: Q):
         if c.name == "AcademIQ":
             q.client.collection_id = c.id
             break
-    q.client.chat_session_id = client.create_chat_session(q.client.collection_id)
+    chat_session = client.list_chat_sessions_for_collection(q.client.collection_id, 0, 1)
+    # if no chat session has been created before
+    if len(chat_session) == 0:
+        q.client.chat_session_id = client.create_chat_session(q.client.collection_id)
+    else: # if there is an existing chat session
+        q.client.chat_session = chat_session[0]
+        q.client.chat_session_id = q.client.chat_session.id
+    q.client.chatlog = []
 
 
 @app('/')
