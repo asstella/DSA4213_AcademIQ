@@ -13,8 +13,6 @@ services:
       - NEO4J_dbms_connector_bolt_advertised__address=localhost:7687
   nlm_ingestor:
     image: ghcr.io/nlmatics/nlm-ingestor:latest
-    depends_on:
-      - neo4j
     ports:
       - "5001:5001"
       - "5002:5002"
