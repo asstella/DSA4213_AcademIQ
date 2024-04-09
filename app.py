@@ -149,7 +149,7 @@ async def question_generator(q: Q):
         q.page['body1'] = ui.chatbot_card(
             box='content',
             name='chatbot',
-            data = [],
+            data = data(fields='content from_user', t='list'),
             generating=True,
             events=['stop']
         )
@@ -177,13 +177,15 @@ async def chatbot(q: Q):
     tmp = client.upload('qna.txt', qna_str)
     client.ingest_uploads(q.client.collection_id, [tmp])
     with client.connect(q.client.chat_session_id) as session:
-        # reply = session.query(q.args.chatbot, timeout=60)
-        # q.page['body1'].data += [q.args.chatbot, True]
-        # q.page['body1'].data += [reply.content, False]
-        # tream response.
-        # TODO: fix query display, now only streaming in terminal
+        # append user query to the chatbot
+        q.page['body1'].data += [q.args.chatbot, True]
+        reply = session.query(q.args.chatbot, timeout=60)
+        # stream response from h2ogpt
         stream = ''
-        for w in session.query(q.args.chatbot, timeout=60).content.split():
+        if not reply:
+            print("No reply received")
+        q.page['body1'].data += [reply.content, False]
+        for w in reply.content.split():
             await q.sleep(0.1)
             stream += w + ' '
             q.page['body1'].data[-1] = [stream, False]
@@ -284,11 +286,12 @@ def init(q: Q):
     # GLOBAL VARS
     q.client.initialized = True
     q.client.selected_topics = set() # set of selected topics by user
-    q.client.collection_id = client.create_collection(
-            name='AcademIQ',
-            description='Let user check answers for generated questions'
-        )
-    # Create a chat session
+    # take the most recent collection in the API key
+    recent_collections = client.list_recent_collections(0, 1000)
+    for c in recent_collections:
+        if c.name == "AcademIQ":
+            q.client.collection_id = c.id
+            break
     q.client.chat_session_id = client.create_chat_session(q.client.collection_id)
 
 
