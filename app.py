@@ -129,11 +129,12 @@ async def question_generator(q: Q):
     topic_items = [ui.text_xl('Topic(s) Selected:')]
 
     # if topics are selected, display them
-    if 'current_topic' in q.client:
-        node = next(filter(lambda n: n.get('id', None) == q.client.current_topic, q.client.graph['nodes']), None)
-        if node:
-            topics = [node['label']]
-            topic_items.extend([ui.text(item) for item in topics])
+    if q.client.selected_topics:
+        for topic in q.client.selected_topics:
+            node = next(filter(lambda n: n.get('id', None) == topic, q.client.graph['nodes']), None)
+            if node:
+                topics = [node['label']]
+                topic_items.extend([ui.text(item) for item in topics])
     
     q.page['top'] = ui.form_card(box='content', items = topic_items)
     
@@ -211,9 +212,10 @@ async def knowledge_graph(q: Q):
         q.client.graph = {
             "nodes": [
                 {"id": 0, "label": "topic 1", "type": "topic", "summary": "topic 1 summary"},
+                {"id": 2, "label": "topic 2", "type": "topic", "summary": "topic 2 summary"},
                 {"id": 1, "label": "document 1", "type": "document"}
             ],
-            "links": [{"source": 0, "target": 1}]
+            "links": [{"source": 0, "target": 1, "source": 0, "target": 2}]
         }
     
     q.page['body'] = ui.form_card(box='content', items=[
@@ -224,11 +226,13 @@ async def knowledge_graph(q: Q):
     sections = [ui.markup(content=content)]
     topic_items = [ui.text_xl('Topic(s) Selected:')]
 
-    if 'current_topic' in q.client:
-        node = next(filter(lambda n: n.get('id', None) == q.client.current_topic, q.client.graph['nodes']))
-        sections.append(ui.text(node['label']))
-        topics = [node['label']]
-        topic_items.extend([ui.text(item) for item in topics])
+    # if topics are selected, display them
+    if q.client.selected_topics:
+        for topic in q.client.selected_topics:
+            node = next(filter(lambda n: n.get('id', None) == topic, q.client.graph['nodes']), None)
+            if node:
+                topics = [node['label']]
+                topic_items.extend([ui.text(item) for item in topics])
 
     q.page['top'] = ui.form_card(box='content', items = topic_items)
 
