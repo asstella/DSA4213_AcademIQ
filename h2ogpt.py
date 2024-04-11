@@ -6,7 +6,7 @@ llm = "gpt-4-1106-preview"
 system_prompt = "You are an expert at identifying the key concepts and topics within paragraphs from academic documents, textbooks, and school notes of various formats. Always base your responses on well established academic concepts and topics taught in universities across various domains and fields of study."
 client = H2OGPTE(
     address='https://h2ogpte.genai.h2o.ai',
-    api_key='sk-e8OiW2FoQRn7FXW0Q7pHHwRRg9ip9VzYTWzhTViVUP1jf7ht' # replace with ur own api key so can see when testing
+    api_key='sk-PZx6HXM0jsfJFWTHHfd0KJbVwVlnVSuKcPVwugbWaFk8ZokL' # replace with ur own api key so can see when testing
 )
 
 
@@ -29,7 +29,7 @@ Here is an example output:
     {
         "topic": "Attention Mechanism",
         "question": "What is a primary factor influencing the time required to implement an attention mechanism?",
-        "option 1": "The programming language used",
+        "option 1": "The programming ladnguage used",
         "option 2": "The complexity of the attention mechanism",
         "option 3": "The size of the dataset",
         "option 4": "The hardware specifications of the computer",
@@ -71,7 +71,7 @@ def extract_topics(context_list: list[str]):
             topics.extend(json.loads(record))
         except:
             print("Error processing record:", record)
-    # print(topics)
+    print(topics)
     return topics
 
 def summary(context_list: list[str]):
@@ -166,4 +166,4 @@ def test_question_generation():
 #test_invalid_file()
 #test_summary_topics()
 # test_extract_topics()
-test_question_generation()
+# test_question_generation()

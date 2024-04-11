@@ -1,6 +1,6 @@
 from h2o_wave import main, app, Q, ui, on, run_on, site, data
 from preprocessing import parse_file
-from h2ogpt import extract_topics, client
+from h2ogpt import extract_topics, client, generate_questions
 from db import add_document, get_topic_graph
 import os
 import json
@@ -9,16 +9,18 @@ import json
 script = '''
 function render(graph) {{
     const container = d3.select("#d3-chart");
-    const width = 600 // container.node().getBoundingClientRect().width;
+    const width = 800 // container.node().getBoundingClientRect().width;
     const height = 800;
 
     const svg = container.append("svg")
         .attr("width", width)
-        .attr("height", height);
+        .attr("height", height)
+        .attr("viewBox", [0, 0, width, height])
+        .attr("style", "max-width: 100%; height: auto;");
 
     const simulation = d3.forceSimulation(graph.nodes)
         .force("link", d3.forceLink(graph.links).id(d => d.id).distance(150))
-        .force("charge", d3.forceManyBody())
+        .force("charge", d3.forceManyBody().strength(-200))
         .force("center", d3.forceCenter(width / 2, height / 2));
 
     const link = svg.append("g")
@@ -69,6 +71,9 @@ function render(graph) {{
         .attr("r", 40)
         .attr("fill", d => color(d.type))
         .call(drag(simulation));
+        
+    node.append("title")
+      .text(d => d.label);
 
     node.on("mouseover", function(event, d) {{
         d3.select(this)
@@ -108,9 +113,9 @@ async def upload_files(q: Q) -> None:
     """Triggered when user clicks the Upload button in the file upload widget."""
     for filepath in q.args.upload_files:
         local_path = await q.site.download(filepath, '.')
-        document = parse_file(local_path)
-        topics = extract_topics(document['chunks'])
-        add_document(document, topics)
+        q.client.document = parse_file(local_path)
+        topics_summary = extract_topics(q.client.document['chunks'])
+        add_document(q.client.document, topics_summary)
     # TODO: Add some form topic refinement to make sure similar topics are merged
 
     q.client.files = q.args.upload_files # keep track of whether file was uploaded
@@ -140,6 +145,8 @@ async def question_generator(q: Q):
     
     # display questions if available
     if q.client.files and (q.args.generate_button or q.client.show_chatbot):
+        questions = generate_questions(topics, q.client.document['chunks'])
+        # print(questions)
         if not q.client.qna:
             # TODO: replace with real data
             q.client.qna = [
@@ -154,9 +161,6 @@ async def question_generator(q: Q):
             generating=True,
             events=['stop']
         )
-        if q.client.selected_topics:
-            # display different qna for selected topics
-            pass
 
         q.client.show_chatbot = True
     
@@ -213,16 +217,22 @@ async def knowledge_graph(q: Q):
     del q.page['body1']
     q.client.page = 'knowledge_graph'
     if not q.client.graph:
-        # q.client.graph = get_topic_graph()
-        # TODO: Remove sample data for testing
-        q.client.graph = {
-            "nodes": [
-                {"id": 0, "label": "topic 1", "type": "topic", "summary": "topic 1 summary"},
-                {"id": 2, "label": "topic 2", "type": "topic", "summary": "topic 2 summary"},
-                {"id": 1, "label": "document 1", "type": "document"}
-            ],
-            "links": [{"source": 0, "target": 1, "source": 0, "target": 2}]
-        }
+        q.client.graph = get_topic_graph()
+        # q.client.graph = {
+        #     "nodes": [
+        #         {"id": 0, "label": "attention.pdf", "type": "document"},
+        #         {"id": 1, "label": "Transformer Model", "type": "topic", "summary": "The Transformer model is a novel architecture for sequence transduction tasks such as machine translation. It relies entirely on an attention mechanism, without using recurrent neural networks (RNNs) or convolutional neural networks (CNNs). The Transformer facilitates parallelization, which significantly reduces training times and improves performance on tasks like language modeling and machine translation. It incorporates self-attention mechanisms, allowing the model to weigh the importance of different parts of the input data differently and capture internal dependencies. The model also uses multi-head attention to focus on different parts of the input sequence simultaneously and positional encoding to retain information about the order of words. The encoder-decoder structure of the Transformer maps an input sequence to a continuous representation and generates an output sequence from this representation, with attention mechanisms connecting the two."},
+        #         {"id": 2, "label": "Training and Regularization Techniques", "type": "topic", "summary": "The Transformer model employs various training and regularization techniques such as Adam optimizer with learning rate scheduling, residual dropout, and label smoothing. These techniques help in stabilizing the training process and improving the generalization of the model."},
+        #         {"id": 3, "label": "Machine Translation", "type": "topic", "summary": "Machine translation is a key application of the Transformer model, where the goal is to translate a text from one language to another. The Transformer has achieved state-of-the-art results on benchmark datasets for machine translation tasks, outperforming previous models and ensembles."},
+        #         {"id": 4, "label": "Model Generalization", "type": "topic", "summary": "The Transformer model's ability to generalize to other tasks beyond machine translation has been demonstrated through its application to English constituency parsing. This shows the model's versatility and potential for a wide range of sequence transduction tasks."}
+        #     ],
+        #     "links": [
+        #         {"source": 1, "target": 0},
+        #         {"source": 2, "target": 0},
+        #         {"source": 3, "target": 0},
+        #         {"source": 4, "target": 0}
+        #     ]
+        # }
     
     q.page['body'] = ui.form_card(box='content', items=[
             ui.text_xl('Knowledge Graph'),
@@ -247,7 +257,11 @@ async def knowledge_graph(q: Q):
         items=sections
     )
 
-    fmt_script = script.format(data=json.dumps(q.client.graph))
+    graph_json = json.dumps(q.client.graph)
+    # Escape single quotes and backslashes for JavaScript compatibility
+    escaped_graph_json = graph_json.replace("\\", "\\\\").replace("'", "\\'")
+    fmt_script = script.format(data=escaped_graph_json)
+
     q.page['meta'] = ui.meta_card(
         box='',
         script=ui.inline_script(content=fmt_script, requires=['d3'], targets=['#d3-chart']),
@@ -310,6 +324,11 @@ def init(q: Q):
         q.client.chat_session = chat_session[0]
         q.client.chat_session_id = q.client.chat_session.id
     q.client.chatlog = []
+
+# remove documents from collection when user unselects a topic.
+# doc_id = client.list_documents_in_collection(q.client.collection_id, 0, 1).id
+# client.delete_documents_from_collection(q.client.collection_id, doc_id)
+# topic_doc_dict = {doc_id: topic(s)} or {topic: doc_id}
 
 
 @app('/')

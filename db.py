@@ -30,15 +30,51 @@ def add_document(document: dict, topics: list[dict]):
             session.run("MATCH (d:Document {key: $doc_key}), (t:Topic {key: $topic_key}) MERGE (d)-[:TOPIC]->(t)", doc_key=doc_hash, topic_key=topic['topic'])
     driver.close()
 
+# def get_topic_graph():
+#     data = {'documents': [], 'topics': []}
+#     driver = GraphDatabase.driver(NEO4J_URI, database=NEO4J_DATABASE, auth=(NEO4J_USER, NEO4J_PASSWORD))
+#     with driver.session() as session:
+#         documents = session.run("MATCH (d:Document) RETURN d.key AS key, d.filename AS filename, d.summary AS summary")
+#         for record in documents:
+#             data["documents"].append({'key': record['key'], 'filename': record.get('filename', ''), 'summary': record.get('summary', '')})
+#         topics = session.run("MATCH (t:Topic) RETURN t.key AS key")
+#         for record in topics:
+#             data["topics"].append(record['key'])
+#     driver.close()
+#     return data
+
 def get_topic_graph():
-    data = {'documents': [], 'topics': []}
+    nodes = []
+    links = []
+    node_id_map = {}
+    next_id = 0
+    
     driver = GraphDatabase.driver(NEO4J_URI, database=NEO4J_DATABASE, auth=(NEO4J_USER, NEO4J_PASSWORD))
     with driver.session() as session:
-        documents = session.run("MATCH (d:Document) RETURN d.key AS key, d.filename AS filename, d.summary AS summary")
-        for record in documents:
-            data["documents"].append({'key': record['key'], 'filename': record.get('filename', ''), 'summary': record.get('summary', '')})
-        topics = session.run("MATCH (t:Topic) RETURN t.key AS key")
-        for record in topics:
-            data["topics"].append(record['key'])
+        # Fetch documents and their related topics
+        result = session.run("MATCH (d:Document)-[:TOPIC]->(t:Topic) RETURN d.key AS doc_key, d.filename AS filename, t.key AS topic_key, t.summary AS summary")
+        
+        for record in result:
+            # Add document node if not already added
+            if record['doc_key'] not in node_id_map:
+                doc_node = {"id": next_id, "label": record['filename'], "type": "document"}
+                nodes.append(doc_node)
+                node_id_map[record['doc_key']] = next_id
+                next_id += 1
+            
+            # Add topic node if not already added
+            topic_id = f"topic_{record['topic_key']}"
+            if topic_id not in node_id_map:
+                topic_node = {"id": next_id, "label": record['topic_key'], "type": "topic", "summary": record['summary']}
+                nodes.append(topic_node)
+                node_id_map[topic_id] = next_id
+                next_id += 1
+            
+            # Add link from topic to document
+            links.append({"source": node_id_map[topic_id], "target": node_id_map[record['doc_key']]})
+    
     driver.close()
-    return data
+    
+    return {"nodes": nodes, "links": links}
+
+
