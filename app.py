@@ -145,21 +145,47 @@ async def question_generator(q: Q):
     
     # display questions if available
     if q.client.files and (q.args.generate_button or q.client.show_chatbot):
-        questions = generate_questions(topics, q.client.document['chunks'])
-        # print(questions)
-        if not q.client.qna:
-            # TODO: replace with real data
-            q.client.qna = [
-                {"id": 0, "question": "What is 1+1?", "answer": "2"},
-                {"id": 1, "question": "How to draw a circle?", "answer": "Use a pencil."}
-            ]
-        items.extend([ui.text(item['question']) for item in q.client.qna])
+        if q.client.new_len != q.client.prev_len:
+            q.client.qna = generate_questions(topics, q.client.document['chunks'])
+            # print(q.client.qna)
+            # q.client.qna = [
+            #     {
+            #         "topic": "Transformer Model Architecture",
+            #         "question": "What distinguishes the Transformer model architecture from other sequence transduction models?",
+            #         "option 1": "It uses convolutional neural networks as its base.",
+            #         "option 2": "It is based solely on attention mechanisms without recurrence and convolutions.",
+            #         "option 3": "It relies on recurrent neural networks for sequence modeling.",
+            #         "option 4": "It employs traditional feed-forward neural networks for processing sequences.",
+            #         "correct option": "Option 2",
+            #         "explanation": "The Transformer model architecture is unique because it eschews both recurrent and convolutional neural networks, relying entirely on attention mechanisms."
+            #     },
+            #     {
+            #         "topic": "Self-Attention Mechanism",
+            #         "question": "What is the role of self-attention in the Transformer model?",
+            #         "option 1": "To process the input sequence in a parallel manner.",
+            #         "option 2": "To connect the encoder and decoder in sequence-to-sequence models.",
+            #         "option 3": "To relate different positions of a single sequence for representation.",
+            #         "option 4": "To reduce the training time by simplifying the network architecture.",
+            #         "correct option": "Option 3",
+            #         "explanation": "Self-attention, or intra-attention, is an attention mechanism that relates different positions of a single sequence to compute a representation of the sequence."
+            #     }
+            # ]
+            qna_str = json.dumps(q.client.qna)
+            tmp = client.upload('qna.txt', qna_str) 
+            client.ingest_uploads(q.client.collection_id, [tmp])
+
+        for idx, qna in enumerate(q.client.qna):
+            markdown_content = f"**{idx + 1}. {qna['question']}**\n\n"
+            for i in range(1, 5):
+                option_key = f"option {i}"
+                if option_key in qna:
+                    markdown_content += f"{i}. {qna[option_key]}\n"
+            items.append(ui.text(markdown_content))
+
         q.page['body1'] = ui.chatbot_card(
             box='content',
             name='chatbot',
             data = data(fields='content from_user', t='list', rows=q.client.chatlog),
-            generating=True,
-            events=['stop']
         )
 
         q.client.show_chatbot = True
@@ -172,11 +198,12 @@ async def question_generator(q: Q):
 
 @on('generate_button')
 async def generate_button(q: Q):
-    # TODO: change to upload document depend on which topics user select and what h2o generates
-    if q.client.files:
-        qna_str = json.dumps(q.client.qna)
-        tmp = client.upload('qna.txt', qna_str) 
-        client.ingest_uploads(q.client.collection_id, [tmp])
+    # remove documents from collection when user unselects a topic.
+    doc = client.list_documents_in_collection(q.client.collection_id, 0, 1)
+    if doc:
+        doc_id = doc[0].id
+        client.delete_documents_from_collection(q.client.collection_id, [doc_id])
+
     await question_generator(q)
 
 @on()
@@ -205,11 +232,13 @@ async def chatbot(q: Q):
 @on('graph.node_clicked')
 async def node_clicked(q: Q) -> None:
     id = q.events.graph.node_clicked
+    q.client.prev_len = len(q.client.selected_topics)
     if id in q.client.selected_topics:
         q.client.selected_topics.remove(id)
     else:
         q.client.selected_topics.add(id)
     q.client.current_topic = id # knowledge graph will show information about topic clicked on
+    q.client.new_len = len(q.client.selected_topics)
     await knowledge_graph(q) # trigger re-render of knowledge graph page
 
 @on()
@@ -324,11 +353,6 @@ def init(q: Q):
         q.client.chat_session = chat_session[0]
         q.client.chat_session_id = q.client.chat_session.id
     q.client.chatlog = []
-
-# remove documents from collection when user unselects a topic.
-# doc_id = client.list_documents_in_collection(q.client.collection_id, 0, 1).id
-# client.delete_documents_from_collection(q.client.collection_id, doc_id)
-# topic_doc_dict = {doc_id: topic(s)} or {topic: doc_id}
 
 
 @app('/')
