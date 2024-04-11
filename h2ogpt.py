@@ -6,7 +6,7 @@ llm = "gpt-4-1106-preview"
 system_prompt = "You are an expert at identifying the key concepts and topics within paragraphs from academic documents, textbooks, and school notes of various formats. Always base your responses on well established academic concepts and topics taught in universities across various domains and fields of study."
 client = H2OGPTE(
     address='https://h2ogpte.genai.h2o.ai',
-    api_key='' # replace with ur own api key so can see when testing
+    api_key='sk-e8OiW2FoQRn7FXW0Q7pHHwRRg9ip9VzYTWzhTViVUP1jf7ht' # replace with ur own api key so can see when testing
 )
 
 
@@ -97,7 +97,7 @@ def summary(context_list: list[str]):
 
 
 
-def generate_questions(topics: set[str]):
+def generate_questions(topics: set[str], context_list: list[str]):
     """
     Returns a list of dictionary objects each with a topic and a question answer pair.
 
@@ -110,8 +110,8 @@ def generate_questions(topics: set[str]):
 
     response = client.extract_data(
         system_prompt=system_prompt,
-        pre_prompt_extract="Generate a question related to the following topic:\n",
-        text_context_list=topics,
+        pre_prompt_extract="Using the text, generate a question for each topic in this list: " + str(topics),
+        text_context_list=context_list,
         prompt_extract="Format the questions as a list of JSON objects: topic, question, option 1, option 2, option 3, option 4, correct option, explanation." + question_generator_output_format,
         llm=llm
     )
@@ -150,6 +150,8 @@ def test_summary_topics():
     summary(processed_document['chunks'])
 
 def test_question_generation():
+    filepath = 'attention.pdf'
+    processed_document = parse_file(filepath)
     generate_questions(topics = [
         "Transformer Model Architecture",
         "Self-Attention Mechanism",
@@ -157,8 +159,8 @@ def test_question_generation():
         "Positional Encoding",
         "Model Generalization and Applications",
         "Computational Efficiency",
-        "State-of-the-Art Performance"
-    ])
+        "State-of-the-Art Performance"],
+        context_list= processed_document['chunks'])
 
 # test_generate()
 #test_invalid_file()
