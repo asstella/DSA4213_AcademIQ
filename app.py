@@ -141,6 +141,16 @@ async def question_generator(q: Q):
                 topics = [node['label']]
                 topic_items.extend([ui.text(item) for item in topics])
     
+    q.page['about'] = ui.form_card(box='content', items=[
+        ui.text(
+        """### How to Use the Question Generator 
+1. Click the *Generate* button to generate questions relevant to the selected topics
+2. Wait for the questions to be generated
+3. Use the chatbot to verify your answers for the generated questions
+        """
+            ),
+        ])
+        
     q.page['top'] = ui.form_card(box='content', items = topic_items)
     
     # display questions if available
@@ -278,6 +288,17 @@ async def knowledge_graph(q: Q):
             if node:
                 topics = [node['label']]
                 topic_items.extend([ui.text(item) for item in topics])
+
+    q.page['about'] = ui.form_card(box='content', items=[
+        ui.text(
+        """### How to Use the Knowledge Graph 
+1. Upload one document or multiple documents
+2. Wait for the knowledge graph to be generated
+3. View the relationship between the documents and the topics
+4. Select any topics to view a summary or generate questions
+        """
+        ),
+    ])
 
     q.page['top'] = ui.form_card(box='content', items = topic_items)
 
