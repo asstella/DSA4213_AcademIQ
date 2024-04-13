@@ -10,7 +10,7 @@ script = '''
 function render(graph) {{
     const container = d3.select("#d3-chart");
     const width = container.node().getBoundingClientRect().width;
-    const height = 800;
+    const height = 600;
     const tooltip = d3.select("#d3-tooltip");
 
     const svg = container.append("svg")
@@ -345,7 +345,7 @@ async def knowledge_graph(q: Q):
     fmt_script = script.format(data=escaped_graph_json)
 
     # inject custom javascript code for displaying the knowledge graph
-    q.page['meta'].script = ui.inline_script(content=fmt_script, requires=['d3'], targets=['#d3-chart'])
+    q.page['meta'].script = ui.inline_script(content=fmt_script, requires=['d3'], targets=['#d3-chart', '#d3-tooltip'])
 
     await q.page.save()
 
