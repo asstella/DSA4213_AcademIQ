@@ -2,9 +2,11 @@ from h2ogpte import H2OGPTE
 import json
 from preprocessing import parse_file
 
-# faster models to try: mistralai/Mixtral-8x7B-Instruct-v0.1 gpt-3.5-turbo-16k-0613 gemini-pro
 llm = "mistralai/Mixtral-8x7B-Instruct-v0.1"
-system_prompt = "You are an expert at identifying the key concepts and topics within paragraphs from academic documents, textbooks, and school notes of various formats. Always base your responses on well established academic concepts and topics across various fields of study."
+system_prompt = "You are an expert at identifying the key concepts and topics within paragraphs \
+from academic documents, textbooks, and school notes of various formats. Always base your responses \
+on well established academic concepts and topics across various fields of study."
+
 client = H2OGPTE(
     address='https://h2ogpte.genai.h2o.ai',
     api_key='sk-a25XDdP6vOOFGxYO1kmrNmVHrQpuGTqLx7pbJlgUqIhSadCI' # replace with ur own api key so can see when testing
@@ -31,24 +33,26 @@ topic_tree_format = """{\
 {"source": "Subtopic 1", "target": "Subtopic 2"}\
 ]}"""
 
-
-summary_output_format = """
-Here is an example output:
-[\
-{"main_summary": "Topic modeling is a popular natural language processing technique used to create structured data from a collection of unstructured data. The technique enables businesses to learn the hidden semantic patterns portrayed by a text corpus and automatically identify the topics that exist inside it."}\
-] """
-
 question_generator_output_format = """
-Here is an example output:
-[{
-    "topic": "Attention Mechanism",
-    "question": "What is a primary factor influencing the time required to implement an attention mechanism?",
-    "option 1": "The programming ladnguage used",
-    "option 2": "The complexity of the attention mechanism",
-    "option 3": "The size of the dataset",
-    "option 4": "The hardware specifications of the computer",
-    "correct option": "Option 2",
-    "explanation": "This is because more complex attention mechanisms, such as those involving multiple layers or intricate attention patterns, require more time to design, code, and integrate into a system compared to simpler attention mechanisms."
+[{\
+"topic": "Attention Mechanism",\
+"question": "What is a primary factor influencing the time required to implement an attention mechanism?",\
+"option 1": "The programming language used",\
+"option 2": "The complexity of the attention mechanism",\
+"option 3": "The size of the dataset",\
+"option 4": "The hardware specifications of the computer",\
+"correct option": "Option 2",\
+"explanation": "This is because more complex attention mechanisms, such as those involving multiple layers or intricate attention patterns, require more time to design, code, and integrate into a system compared to simpler attention mechanisms."\
+}, \
+{\
+"topic": "Topic",\
+"question": "Question",\
+"option 1": "Option 1",\
+"option 2": "Option 2",\
+"option 3": "Option 3",\
+"option 4": "Option 4",\
+"correct option": "Option 4",\
+"explanation": "Explanation for answer based on the provided document contents."\
 }]
 """
 
@@ -64,9 +68,14 @@ def extract_topics(context_list: list[str]):
     """
     response = client.extract_data(
         system_prompt=system_prompt,
-        pre_prompt_extract="Extract a short list of topics based on the provided contents of a document. These topics should be broad concepts in the area of study the document is based on. The first line in each chunk indicates the location of the chunk within the document outline, separated by the symbol >. For each topic identified, provide a clear and concise summary of the topic and do not make direct references to the document.\n",
+        pre_prompt_extract="Extract a short list of topics based on the provided contents of a \
+document. These topics should be broad concepts in the area of study the document is based on. The \
+first line in each chunk indicates the location of the chunk within the document outline, separated \
+by the symbol >. For each topic identified, provide a clear and concise summary of the topic and do \
+not make direct references to the document.",
         text_context_list=context_list,
-        prompt_extract="Your response MUST be a compact list of JSON objects representing a topic and its summary in the format specified. Here is an example:" + extract_topic_output_format,
+        prompt_extract="Your response MUST be a compact list of JSON objects representing a topic \
+and its summary in the format specified. Here is an example:\n" + extract_topic_output_format,
         llm=llm
     )
     topics = []
@@ -76,26 +85,6 @@ def extract_topics(context_list: list[str]):
         except:
             print("Error processing record:", record)
     return topics
-
-def summary(context_list: list[str]):
-    """
-    Returns a summary
-    """
-    response = client.extract_data(
-        system_prompt=system_prompt,
-        pre_prompt_extract="Extract the main summary.\n",
-        text_context_list=context_list,
-        prompt_extract="Format the topics as a list of JSON object with the following key: summary. There should only be one summary" + summary_output_format,
-        llm=llm
-    )
-    topics = []
-    for record in response.content:
-        try:
-            topics.extend(json.loads(record))
-        except:
-            print("Error processing record:", record)
-    return topics
-
 
 
 def generate_questions(topics: set[str], context_list: list[str]):
@@ -110,9 +99,12 @@ def generate_questions(topics: set[str], context_list: list[str]):
     """
     response = client.extract_data(
         system_prompt=system_prompt,
-        pre_prompt_extract="Using the text, generate a question for each topic in this list: " + str(topics),
+        pre_prompt_extract="You are given the contents of a set of documents based on this list of topics: " + ', '.join(topics) +
+        "Use this to generate a list of MCQ questions based on the topics given to you. The first line of each document chunk \
+indicates its location within the outline of the document, with each section separated by the symbol >.",
         text_context_list=context_list,
-        prompt_extract="Format the questions as a list of JSON objects: topic, question, option 1, option 2, option 3, option 4, correct option, explanation." + question_generator_output_format,
+        prompt_extract="Format the questions as a list of JSON objects with the attributes: topic, question, option 1, option 2, option 3, option 4, correct option, explanation.\
+Here is an example: " + question_generator_output_format,
         llm=llm
     )
 
@@ -124,15 +116,12 @@ def generate_questions(topics: set[str], context_list: list[str]):
             print("Error processing record:", record)
     return questions
 
+
 def test_extract_topics():
     filepath = 'attention.pdf'
     processed_document = parse_file(filepath)
     extract_topics(processed_document['chunks'])
 
-def test_summary_topics():
-    filepath = 'attention.pdf'
-    processed_document = parse_file(filepath)
-    summary(processed_document['chunks'])
 
 def test_question_generation():
     filepath = 'attention.pdf'

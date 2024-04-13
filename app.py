@@ -1,9 +1,7 @@
-import asyncio
 from h2o_wave import main, app, Q, ui, on, run_on, site, data
 from preprocessing import parse_file
 from h2ogpt import extract_topics, client, generate_questions, system_prompt, llm, topic_tree_format
 from db import get_all_topics, get_documents_from_topics, get_knowledge_graph, init_db, insert_graph
-import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 
@@ -133,15 +131,15 @@ async def upload_files(q: Q) -> None:
     # merge similar topics together with existing ones, and generate subtopic tree
     response = client.extract_data(
         system_prompt=system_prompt,
-        pre_prompt_extract="""Here is a JSON object mapping filenames to a list of topics and \
+        pre_prompt_extract="Here is a JSON object mapping filenames to a list of topics and \
 summaries, and a list of existing topics. Build a hierarchical topic graph with nodes representing \
 topics and edges representing a subtopic relationship. Each topic should contain a brief summary of \
 the topic and an array documents with the filenames that contains content relevant to the topic. \
 Please combine any topics that are found to be very similar to each other. If any topic is similar \
-to one that already exists, please rename it to match the existing topic.\n""",
+to one that already exists, please rename it to match the existing topic.\n",
         text_context_list=[json.dumps(doc_topics), get_all_topics()],
-        prompt_extract="""Your response MUST be a compact JSON object with the attributes topics and \
-edges, according to the format specified. The source node is the parent of the target node. Here is an example:""" + topic_tree_format,
+        prompt_extract="Your response MUST be a compact JSON object with the attributes topics and \
+edges, according to the format specified. The source node is the parent of the target node. Here is an example:\n" + topic_tree_format,
         llm=llm
     )
     # insert graph into the neo4j database
@@ -149,7 +147,11 @@ edges, according to the format specified. The source node is the parent of the t
         try:
             insert_graph(json.loads(res), documents)
         except json.JSONDecodeError as e:
-            print(f"Error: {e}")
+            q.page['meta'].notification_bar = ui.notification_bar(
+                text=f"Error: {e}",
+                type='error',
+                position='bottom-right',
+            )
 
     q.client.files = q.args.upload_files # keep track of whether file was uploaded
 
@@ -175,23 +177,29 @@ async def question_generator(q: Q):
         """### How to Use the Question Generator 
 1. Click the *Generate* button to generate questions relevant to the selected topics
 2. Wait for the questions to be generated
-3. Use the chatbot to verify your answers for the generated questions
-        """
+3. Use the chatbot to verify your answers for the generated questions"""
             ),
         ])
 
     # when generate button is clicked and there are selected topics, generate questions
     if q.client.selected_topics and q.args.generate_button:
-        chunks = ['\n'.join(chunk) for doc, chunk in get_documents_from_topics(q.client.selected_topics)]
-        q.client.qna = generate_questions(q.client.selected_topics, chunks)
-        # Display list of questions in markdown
-        for idx, qna in enumerate(q.client.qna):
-            markdown_content = f"**{idx + 1}. {qna['question']}**\n\n"
-            for i in range(1, 5):
-                option_key = f"option {i}"
-                if option_key in qna:
-                    markdown_content += f"{i}. {qna[option_key]}\n"
-            items.append(ui.text(markdown_content))
+        try:
+            chunks = ['\n'.join(chunk) for _, chunk in get_documents_from_topics(q.client.selected_topics)]
+            q.client.qna = generate_questions(q.client.selected_topics, chunks)
+            # Display list of questions in markdown
+            for idx, qna in enumerate(q.client.qna):
+                markdown_content = f"**{idx + 1}. {qna['question']}**\n\n"
+                for i in range(1, 5):
+                    option_key = f"option {i}"
+                    if option_key in qna:
+                        markdown_content += f"{i}. {qna[option_key]}\n"
+                items.append(ui.text(markdown_content))
+        except:
+            q.page['meta'].notification_bar = ui.notification_bar(
+                text=f"Failed to generate question for topics {q.client.selected_topics}",
+                type='error',
+                position='bottom-right',
+            )
 
     # if there is already chat history or user has clicked generate, show chat interface
     if q.client.chatlog or (q.args.generate_button and q.client.selected_topics):
@@ -211,6 +219,12 @@ async def question_generator(q: Q):
 
 @on()
 async def generate_button(q: Q):
+    if not q.client.selected_topics:
+        q.page['meta'] = ui.meta_card(box='', notification_bar=ui.notification_bar(
+            text='No topic selected!',
+            type='error',
+            position='bottom-right',
+        ))
     await question_generator(q)
 
 
@@ -224,22 +238,34 @@ async def chatbot(q: Q):
     # append user query to the chatlog and chat ui
     q.page['chat'].data += [q.args.chatbot, True]
     q.client.chatlog.append([q.args.chatbot, True])
-    reply = client.answer_question(
-        q.args.chatbot,
-        text_context_list=q.client.chatlog + [json.dumps(q.client.qna)],
-        system_prompt="""You are given a JSON array of MCQ questions with topical tags and \
-explanations, and chat messages from a user who will try to answer the question and ask questions \
-about the question and its topic. Use the information provided to provided a clear and concise response to the user query."""
-    )
-    # stream response from h2ogpt
-    stream = ''
-    q.page['chat'].data += [reply.content, False]
-    q.client.chatlog.append([reply.content, False])
-    for w in reply.content.split():
-        await q.sleep(0.1)
-        stream += w + ' '
-        q.page['chat'].data[-1] = [stream, False]
-        await q.page.save()
+    try:
+        documents = get_documents_from_topics([qtn['topic'] for qtn in q.client.qna])
+        reply = client.answer_question(
+            q.args.chatbot,
+            text_context_list=[chunk for _, chunk in documents] + [json.dumps(q.client.qna)],
+            system_prompt="You are given a JSON array of MCQ questions with topical tags and \
+    explanations, and the contents of a document from which the question is based on. The \
+    first line in each chunk indicates the location of the chunk within the outline of the document, \
+    separated by the symbol >. Use this to answer the user response to the question and its topic. \
+    Please keep your response clear and concise, and answer the user query directly.",
+            llm=llm
+        )
+        print(reply)
+        # stream response from h2ogpt
+        stream = ''
+        q.page['chat'].data += [stream, False]
+        q.client.chatlog.append([reply.content, False])
+        for w in reply.content.split():
+            await q.sleep(0.1)
+            stream += w + ' '
+            q.page['chat'].data[-1] = [stream, False]
+            await q.page.save()
+    except:
+        q.page['meta'].notification_bar = ui.notification_bar(
+            text=f"Failed to get response from LLM {q.client.qna}",
+            type='error',
+            position='bottom-right',
+        )
 
 
 @on('graph.node_clicked')
@@ -260,7 +286,7 @@ async def knowledge_graph(q: Q):
     del q.page['chat']
     q.client.page = 'knowledge_graph'
     q.client.graph = get_knowledge_graph()
-    
+
     header_items = [ui.text_xl('Topic(s) Selected:')]
     # display selected topics
     header_items.extend([ui.text(topic) for topic in q.client.selected_topics])
@@ -268,7 +294,7 @@ async def knowledge_graph(q: Q):
 
     q.page['about'] = ui.form_card(box='content', items=[
         ui.text(
-        """### How to Use the Knowledge Graph 
+        """### How to Use the Knowledge Graph
 1. Upload one document or multiple documents
 2. Wait for the knowledge graph to be generated
 3. View the relationship between the documents and the topics
@@ -290,11 +316,7 @@ async def knowledge_graph(q: Q):
     fmt_script = script.format(data=escaped_graph_json)
 
     # inject custom javascript code for displaying the knowledge graph
-    q.page['meta'] = ui.meta_card(
-        box='',
-        script=ui.inline_script(content=fmt_script, requires=['d3'], targets=['#d3-chart']),
-        scripts=[ui.script(path="https://d3js.org/d3.v6.min.js")],
-    )
+    q.page['meta'].script = ui.inline_script(content=fmt_script, requires=['d3'], targets=['#d3-chart'])
 
     await q.page.save()
 
@@ -308,8 +330,10 @@ def init(q: Q):
                                 ui.zone('body2', direction=ui.ZoneDirection.COLUMN, zones=[ui.zone('nav'),
                                     ui.zone('content')])
                         ])
-                  ])
-    ])
+                  ]),
+        ],
+        scripts=[ui.script(path="https://d3js.org/d3.v6.min.js")],
+    )
     q.page['header'] = ui.header_card(
         box='header',
         title='AcademIQ',
@@ -331,8 +355,8 @@ def init(q: Q):
     q.page['nav'] = ui.tab_card(
         box='nav',
         items=[
-            ui.tab(name='question_generator', label='Question Generation'),
-            ui.tab(name='knowledge_graph', label='Knowledge Graph')  
+            ui.tab(name='knowledge_graph', label='Knowledge Graph'),
+            ui.tab(name='question_generator', label='Question Generation')
         ]
     )
     
@@ -347,5 +371,5 @@ async def serve(q: Q) -> None:
     if not q.client.initialized:
         init_db() # initialise constraint on neo4j database
         init(q)
-        await question_generator(q) # set question generator as initial page
+        await knowledge_graph(q) # set question generator as initial page
     await run_on(q)

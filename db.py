@@ -48,7 +48,7 @@ def insert_graph(graph, documents):
 
 
 def get_documents_from_topics(topics):
-    """Return list of tuples containing document names and list of chunks from a list of topic strings."""
+    """Return list of tuples containing document name and list of string chunks. Takes in a string iterable representing the topics."""
     documents = []
     with driver.session() as session:
         for topic in topics:
