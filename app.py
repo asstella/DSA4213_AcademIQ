@@ -9,8 +9,9 @@ import json
 script = '''
 function render(graph) {{
     const container = d3.select("#d3-chart");
-    const width = 800 // container.node().getBoundingClientRect().width;
+    const width = container.node().getBoundingClientRect().width;
     const height = 800;
+    const tooltip = d3.select("#d3-tooltip");
 
     const svg = container.append("svg")
         .attr("width", width)
@@ -18,10 +19,22 @@ function render(graph) {{
         .attr("viewBox", [0, 0, width, height])
         .attr("style", "max-width: 100%; height: auto;");
 
+    function boundedBox() {{
+        function force(alpha) {{
+            graph.nodes.forEach(function(d) {{
+                d.x = Math.max(10, Math.min(width - 10, d.x));
+                d.y = Math.max(10, Math.min(height - 10, d.y));
+            }});
+        }}
+        return force;
+    }}
+
     const simulation = d3.forceSimulation(graph.nodes)
-        .force("link", d3.forceLink(graph.edges).id(d => d.name).distance(150))
-        .force("charge", d3.forceManyBody().strength(-200))
-        .force("center", d3.forceCenter(width / 2, height / 2));
+        .force("link", d3.forceLink(graph.edges).id(d => d.name).distance(100))
+        .force("charge", d3.forceManyBody().strength(-100))
+        .force("center", d3.forceCenter(width / 2, height / 2))
+        .force("bounding", boundedBox())
+        .force("collide", d3.forceCollide().radius(d => 20).iterations(1));
 
     const link = svg.append("g")
         .attr("stroke", "#999")
@@ -68,7 +81,7 @@ function render(graph) {{
         .selectAll("circle")
         .data(graph.nodes)
         .join("circle")
-        .attr("r", 40)
+        .attr("r", 25)
         .attr("fill", d => color(d.type))
         .call(drag(simulation));
         
@@ -76,12 +89,22 @@ function render(graph) {{
       .text(d => d.name);
 
     node.on("mouseover", function(event, d) {{
+        tooltip.html(d.name)  // Set the tooltip content
+          .style("visibility", "visible")
+          .style("left", (event.pageX + 10) + "px")  // Position the tooltip
+          .style("top", (event.pageY - 20) + "px");
         d3.select(this)
             .style("cursor", "pointer")
             .style("fill", d => colorHover(d.type));
     }})
 
+    node.on("mousemove", function(event) {{
+        tooltip.style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 20) + "px");
+    }});
+
     node.on("mouseout", function(d) {{
+        tooltip.style("visibility", "hidden");  // Hide the tooltip
         d3.select(this)
             .style("fill", d => color(d.type));
     }});
@@ -155,8 +178,6 @@ to one that already exists, please rename it to match the existing topic. The so
                 type='error',
                 position='bottom-right',
             )
-
-    q.client.files = q.args.upload_files # keep track of whether file was uploaded
 
     if q.client.page == 'question_generator':
         await question_generator(q)
@@ -302,7 +323,7 @@ async def knowledge_graph(q: Q):
         ),
     ])
 
-    content = '<div id="d3-chart" style="width: 100%; height: 100%"></div>'
+    content = '<div id="d3-chart" style="width: 100%; height: 100%"></div><div id="d3-tooltip" style="position: fixed; visibility: hidden; padding: 10px; background: #2E3541; border: 1px solid #ccc; border-radius: 5px; pointer-events: none;"></div>'
     plot_items = [ui.markup(content=content)]
     q.page['body'] = ui.form_card(
         box='content',
