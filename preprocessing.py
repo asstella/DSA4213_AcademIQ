@@ -44,7 +44,6 @@ def parse_file(filepath: str):
     # the first line in each chunk indicates the section the chunk belongs to
     # eg. "root node > parent section > chunk section"
     processed_document['chunks'] = [c.to_context_text() for c in document.chunks()]
-    # TODO: Split section header and raw chunk text into separate columns
     return processed_document
 
 def test_parse_file():
