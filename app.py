@@ -73,7 +73,7 @@ function render(graph) {{
         .call(drag(simulation));
         
     node.append("title")
-      .text(d => d.label);
+      .text(d => d.name);
 
     node.on("mouseover", function(event, d) {{
         d3.select(this)
@@ -131,20 +131,23 @@ async def upload_files(q: Q) -> None:
     # merge similar topics together with existing ones, and generate subtopic tree
     response = client.extract_data(
         system_prompt=system_prompt,
-        pre_prompt_extract="Here is a JSON object mapping filenames to a list of topics and \
-summaries, and a list of existing topics. Build a hierarchical topic graph with nodes representing \
-topics and edges representing a subtopic relationship. Each topic should contain a brief summary of \
-the topic and an array documents with the filenames that contains content relevant to the topic. \
-Please combine any topics that are found to be very similar to each other. If any topic is similar \
-to one that already exists, please rename it to match the existing topic.\n",
+        pre_prompt_extract="Given this JSON object mapping filenames to a list of topics and \
+summaries, and a list of existing topics. Give a JSON object with topics with 2 attributes: \
+topics and edges. The topics attribute is an object with topic names as its keys, and an object \
+containing the attributes summary which is a string, and documents which is an array of files the topic\
+is found in. Please combine any topics that are found to be very similar to each other. If any topic is similar \
+to one that already exists, please rename it to match the existing topic. The source node is the parent of the target node.",
         text_context_list=[json.dumps(doc_topics), get_all_topics()],
-        prompt_extract="Your response MUST be a compact JSON object with the attributes topics and \
-edges, according to the format specified. The source node is the parent of the target node. Here is an example:\n" + topic_tree_format,
+        prompt_extract="Respond directly with a valid JSON object. Here is an example:\n" + topic_tree_format,
         llm=llm
     )
     # insert graph into the neo4j database
     for res in response.content:
         try:
+            # Format response if it is not directly JSON
+            start = res.find("{")
+            end = res.rfind("}")
+            res = res[start:end + 1]
             insert_graph(json.loads(res), documents)
         except json.JSONDecodeError as e:
             q.page['meta'].notification_bar = ui.notification_bar(
@@ -239,18 +242,14 @@ async def chatbot(q: Q):
     q.page['chat'].data += [q.args.chatbot, True]
     q.client.chatlog.append([q.args.chatbot, True])
     try:
-        documents = get_documents_from_topics([qtn['topic'] for qtn in q.client.qna])
         reply = client.answer_question(
             q.args.chatbot,
-            text_context_list=[chunk for _, chunk in documents] + [json.dumps(q.client.qna)],
-            system_prompt="You are given a JSON array of MCQ questions with topical tags and \
-    explanations, and the contents of a document from which the question is based on. The \
-    first line in each chunk indicates the location of the chunk within the outline of the document, \
-    separated by the symbol >. Use this to answer the user response to the question and its topic. \
-    Please keep your response clear and concise, and answer the user query directly.",
+            text_context_list=[json.dumps(q.client.qna)],
+            pre_prompt_query="You are given a JSON array of MCQ questions with topical tags and \
+explanations. Use this respond to user questions about the question or topic, and judge the correctness of their answers.",
+            prompt_query="Please keep your response clear and concise, and make sure to answer the user directly.",
             llm=llm
         )
-        print(reply)
         # stream response from h2ogpt
         stream = ''
         q.page['chat'].data += [stream, False]
