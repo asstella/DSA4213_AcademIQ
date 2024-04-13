@@ -1,8 +1,10 @@
+import asyncio
 from h2o_wave import main, app, Q, ui, on, run_on, site, data
 from preprocessing import parse_file
-from h2ogpt import extract_topics, client, generate_questions
-from db import add_document, get_topic_graph
+from h2ogpt import extract_topics, client, generate_questions, system_prompt, llm, topic_tree_format
+from db import get_all_topics, get_documents_from_topics, get_knowledge_graph, init_db, insert_graph
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 
 # for knowledge graph
@@ -19,14 +21,14 @@ function render(graph) {{
         .attr("style", "max-width: 100%; height: auto;");
 
     const simulation = d3.forceSimulation(graph.nodes)
-        .force("link", d3.forceLink(graph.links).id(d => d.id).distance(150))
+        .force("link", d3.forceLink(graph.edges).id(d => d.name).distance(150))
         .force("charge", d3.forceManyBody().strength(-200))
         .force("center", d3.forceCenter(width / 2, height / 2));
 
     const link = svg.append("g")
         .attr("stroke", "#999")
         .selectAll("line")
-        .data(graph.links)
+        .data(graph.edges)
         .join("line")
         .attr("stroke-width", d => Math.sqrt(d.value));
 
@@ -89,7 +91,7 @@ function render(graph) {{
     // when we click on a node we will toggle it as a topic for question generation
     node.on('click', (event, d) => {{
         container.remove() // remove the div to make sure new run waits on new div
-        wave.emit("graph", "node_clicked", d.id);
+        wave.emit("graph", "node_clicked", d.name);
     }});
 
     simulation.on("tick", () => {{
@@ -108,15 +110,46 @@ function render(graph) {{
 render(JSON.parse('{data}'));
 '''
 
+
 @on('upload_files')
 async def upload_files(q: Q) -> None:
     """Triggered when user clicks the Upload button in the file upload widget."""
-    for filepath in q.args.upload_files:
-        local_path = await q.site.download(filepath, '.')
-        q.client.document = parse_file(local_path)
-        topics_summary = extract_topics(q.client.document['chunks'])
-        add_document(q.client.document, topics_summary)
-    # TODO: Add some form topic refinement to make sure similar topics are merged
+    doc_topics = {}
+    documents = {}
+    # run the request topics in parallel to speed up execution
+    with ThreadPoolExecutor() as pool:
+        futures = {}
+        for filepath in q.args.upload_files:
+            local_path = await q.site.download(filepath, '.')
+            document = parse_file(local_path)
+            documents[document['file']] = document['chunks']
+            future = pool.submit(extract_topics, document['chunks'])
+            futures[future] = document['file']
+
+        for future in as_completed(futures):
+            file = futures[future]
+            doc_topics[file] = future.result()
+
+    # merge similar topics together with existing ones, and generate subtopic tree
+    response = client.extract_data(
+        system_prompt=system_prompt,
+        pre_prompt_extract="""Here is a JSON object mapping filenames to a list of topics and \
+summaries, and a list of existing topics. Build a hierarchical topic graph with nodes representing \
+topics and edges representing a subtopic relationship. Each topic should contain a brief summary of \
+the topic and an array documents with the filenames that contains content relevant to the topic. \
+Please combine any topics that are found to be very similar to each other. If any topic is similar \
+to one that already exists, please rename it to match the existing topic.\n""",
+        text_context_list=[json.dumps(doc_topics), get_all_topics()],
+        prompt_extract="""Your response MUST be a compact JSON object with the attributes topics and \
+edges, according to the format specified. The source node is the parent of the target node. Here is an example:""" + topic_tree_format,
+        llm=llm
+    )
+    # insert graph into the neo4j database
+    for res in response.content:
+        try:
+            insert_graph(json.loads(res), documents)
+        except json.JSONDecodeError as e:
+            print(f"Error: {e}")
 
     q.client.files = q.args.upload_files # keep track of whether file was uploaded
 
@@ -125,22 +158,18 @@ async def upload_files(q: Q) -> None:
     elif q.client.page == 'knowledge_graph':
         await knowledge_graph(q)
 
+
 @on()
 async def question_generator(q: Q):
     q.client.page = 'question_generator'
-    
-    # basic form setup
-    items = [ui.text_xl('Questions')]
-    topic_items = [ui.text_xl('Topic(s) Selected:')]
 
-    # if topics are selected, display them
-    if q.client.selected_topics:
-        for topic in q.client.selected_topics:
-            node = next(filter(lambda n: n.get('id', None) == topic, q.client.graph['nodes']), None)
-            if node:
-                topics = [node['label']]
-                topic_items.extend([ui.text(item) for item in topics])
+    items = [ui.text_xl("Questions")]
     
+    topic_items = [ui.text_xl('Topic(s) Selected:')]
+    # display selected topics
+    topic_items.extend([ui.text(topic) for topic in q.client.selected_topics])
+    q.page['top'] = ui.form_card(box='content', items=topic_items)
+
     q.page['about'] = ui.form_card(box='content', items=[
         ui.text(
         """### How to Use the Question Generator 
@@ -150,40 +179,12 @@ async def question_generator(q: Q):
         """
             ),
         ])
-        
-    q.page['top'] = ui.form_card(box='content', items = topic_items)
-    
-    # display questions if available
-    if q.client.files and (q.args.generate_button or q.client.show_chatbot):
-        if q.client.new_len != q.client.prev_len:
-            q.client.qna = generate_questions(topics, q.client.document['chunks'])
-            # print(q.client.qna)
-            # q.client.qna = [
-            #     {
-            #         "topic": "Transformer Model Architecture",
-            #         "question": "What distinguishes the Transformer model architecture from other sequence transduction models?",
-            #         "option 1": "It uses convolutional neural networks as its base.",
-            #         "option 2": "It is based solely on attention mechanisms without recurrence and convolutions.",
-            #         "option 3": "It relies on recurrent neural networks for sequence modeling.",
-            #         "option 4": "It employs traditional feed-forward neural networks for processing sequences.",
-            #         "correct option": "Option 2",
-            #         "explanation": "The Transformer model architecture is unique because it eschews both recurrent and convolutional neural networks, relying entirely on attention mechanisms."
-            #     },
-            #     {
-            #         "topic": "Self-Attention Mechanism",
-            #         "question": "What is the role of self-attention in the Transformer model?",
-            #         "option 1": "To process the input sequence in a parallel manner.",
-            #         "option 2": "To connect the encoder and decoder in sequence-to-sequence models.",
-            #         "option 3": "To relate different positions of a single sequence for representation.",
-            #         "option 4": "To reduce the training time by simplifying the network architecture.",
-            #         "correct option": "Option 3",
-            #         "explanation": "Self-attention, or intra-attention, is an attention mechanism that relates different positions of a single sequence to compute a representation of the sequence."
-            #     }
-            # ]
-            qna_str = json.dumps(q.client.qna)
-            tmp = client.upload('qna.txt', qna_str) 
-            client.ingest_uploads(q.client.collection_id, [tmp])
 
+    # when generate button is clicked and there are selected topics, generate questions
+    if q.client.selected_topics and q.args.generate_button:
+        chunks = ['\n'.join(chunk) for doc, chunk in get_documents_from_topics(q.client.selected_topics)]
+        q.client.qna = generate_questions(q.client.selected_topics, chunks)
+        # Display list of questions in markdown
         for idx, qna in enumerate(q.client.qna):
             markdown_content = f"**{idx + 1}. {qna['question']}**\n\n"
             for i in range(1, 5):
@@ -192,102 +193,78 @@ async def question_generator(q: Q):
                     markdown_content += f"{i}. {qna[option_key]}\n"
             items.append(ui.text(markdown_content))
 
-        q.page['body1'] = ui.chatbot_card(
+    # if there is already chat history or user has clicked generate, show chat interface
+    if q.client.chatlog or (q.args.generate_button and q.client.selected_topics):
+        q.page['chat'] = ui.chatbot_card(
             box='content',
             name='chatbot',
             data = data(fields='content from_user', t='list', rows=q.client.chatlog),
         )
-
-        q.client.show_chatbot = True
     
     # button to generate questions
     items.append(ui.button(name='generate_button', label='Generate', primary=True))
 
     q.page['body'] = ui.form_card(box='content', items=items)
+
     await q.page.save()
 
-@on('generate_button')
-async def generate_button(q: Q):
-    # remove documents from collection when user unselects a topic.
-    doc = client.list_documents_in_collection(q.client.collection_id, 0, 1)
-    if doc:
-        doc_id = doc[0].id
-        client.delete_documents_from_collection(q.client.collection_id, [doc_id])
 
+@on()
+async def generate_button(q: Q):
     await question_generator(q)
+
 
 @on()
 async def chatbot(q: Q):
     '''
     Chatbot for user to verify their answers to the questions generated.
-    Displayed when user clicks on button to generate questions on question generation page.
+    Triggers when user submits a query to the chatbot, q.args.chatbot store the
+    string representation of user query.
     '''
-    with client.connect(q.client.chat_session_id) as session:
-        # append user query to the chatbot
-        q.page['body1'].data += [q.args.chatbot, True]
-        q.client.chatlog.append([q.args.chatbot])
-        reply = session.query(q.args.chatbot, timeout=60)
-        # stream response from h2ogpt
-        stream = ''
-        if not reply:
-            print("No reply received")
-        q.page['body1'].data += [reply.content, False]
-        q.client.chatlog.append([reply.content])
-        for w in reply.content.split():
-            await q.sleep(0.1)
-            stream += w + ' '
-            q.page['body1'].data[-1] = [stream, False]
-            await q.page.save()
+    # append user query to the chatlog and chat ui
+    q.page['chat'].data += [q.args.chatbot, True]
+    q.client.chatlog.append([q.args.chatbot, True])
+    reply = client.answer_question(
+        q.args.chatbot,
+        text_context_list=q.client.chatlog + [json.dumps(q.client.qna)],
+        system_prompt="""You are given a JSON array of MCQ questions with topical tags and \
+explanations, and chat messages from a user who will try to answer the question and ask questions \
+about the question and its topic. Use the information provided to provided a clear and concise response to the user query."""
+    )
+    # stream response from h2ogpt
+    stream = ''
+    q.page['chat'].data += [reply.content, False]
+    q.client.chatlog.append([reply.content, False])
+    for w in reply.content.split():
+        await q.sleep(0.1)
+        stream += w + ' '
+        q.page['chat'].data[-1] = [stream, False]
+        await q.page.save()
+
 
 @on('graph.node_clicked')
 async def node_clicked(q: Q) -> None:
-    id = q.events.graph.node_clicked
-    q.client.prev_len = len(q.client.selected_topics)
-    if id in q.client.selected_topics:
-        q.client.selected_topics.remove(id)
-    else:
-        q.client.selected_topics.add(id)
-    q.client.current_topic = id # knowledge graph will show information about topic clicked on
-    q.client.new_len = len(q.client.selected_topics)
+    topic = q.events.graph.node_clicked
+    # clicking on a document node should not update selected topics
+    for node in q.client.graph['nodes']:
+        if node['name'] == topic and node['type'] == 'topic':
+            if topic in q.client.selected_topics:
+                q.client.selected_topics.remove(topic)
+            else:
+                q.client.selected_topics.add(topic)
     await knowledge_graph(q) # trigger re-render of knowledge graph page
+
 
 @on()
 async def knowledge_graph(q: Q):
-    del q.page['body1']
+    del q.page['chat']
     q.client.page = 'knowledge_graph'
-    if not q.client.graph:
-        q.client.graph = get_topic_graph()
-        # q.client.graph = {
-        #     "nodes": [
-        #         {"id": 0, "label": "attention.pdf", "type": "document"},
-        #         {"id": 1, "label": "Transformer Model", "type": "topic", "summary": "The Transformer model is a novel architecture for sequence transduction tasks such as machine translation. It relies entirely on an attention mechanism, without using recurrent neural networks (RNNs) or convolutional neural networks (CNNs). The Transformer facilitates parallelization, which significantly reduces training times and improves performance on tasks like language modeling and machine translation. It incorporates self-attention mechanisms, allowing the model to weigh the importance of different parts of the input data differently and capture internal dependencies. The model also uses multi-head attention to focus on different parts of the input sequence simultaneously and positional encoding to retain information about the order of words. The encoder-decoder structure of the Transformer maps an input sequence to a continuous representation and generates an output sequence from this representation, with attention mechanisms connecting the two."},
-        #         {"id": 2, "label": "Training and Regularization Techniques", "type": "topic", "summary": "The Transformer model employs various training and regularization techniques such as Adam optimizer with learning rate scheduling, residual dropout, and label smoothing. These techniques help in stabilizing the training process and improving the generalization of the model."},
-        #         {"id": 3, "label": "Machine Translation", "type": "topic", "summary": "Machine translation is a key application of the Transformer model, where the goal is to translate a text from one language to another. The Transformer has achieved state-of-the-art results on benchmark datasets for machine translation tasks, outperforming previous models and ensembles."},
-        #         {"id": 4, "label": "Model Generalization", "type": "topic", "summary": "The Transformer model's ability to generalize to other tasks beyond machine translation has been demonstrated through its application to English constituency parsing. This shows the model's versatility and potential for a wide range of sequence transduction tasks."}
-        #     ],
-        #     "links": [
-        #         {"source": 1, "target": 0},
-        #         {"source": 2, "target": 0},
-        #         {"source": 3, "target": 0},
-        #         {"source": 4, "target": 0}
-        #     ]
-        # }
+    q.client.graph = get_knowledge_graph()
     
-    q.page['body'] = ui.form_card(box='content', items=[
-            ui.text_xl('Knowledge Graph'),
-    ])
-
-    content = '<div id="d3-chart" style="width: 100%; height: 100%"></div>'
-    sections = [ui.markup(content=content)]
-    topic_items = [ui.text_xl('Topic(s) Selected:')]
-
-    # if topics are selected, display them
-    if q.client.selected_topics:
-        for topic in q.client.selected_topics:
-            node = next(filter(lambda n: n.get('id', None) == topic, q.client.graph['nodes']), None)
-            if node:
-                topics = [node['label']]
-                topic_items.extend([ui.text(item) for item in topics])
+    header_items = [ui.text_xl('Topic(s) Selected:')]
+    # display selected topics
+    header_items.extend([ui.text(topic) for topic in q.client.selected_topics])
+    q.page['top'] = ui.form_card(box='content', items=header_items)
 
     q.page['about'] = ui.form_card(box='content', items=[
         ui.text(
@@ -300,11 +277,11 @@ async def knowledge_graph(q: Q):
         ),
     ])
 
-    q.page['top'] = ui.form_card(box='content', items = topic_items)
-
+    content = '<div id="d3-chart" style="width: 100%; height: 100%"></div>'
+    plot_items = [ui.markup(content=content)]
     q.page['body'] = ui.form_card(
         box='content',
-        items=sections
+        items=plot_items
     )
 
     graph_json = json.dumps(q.client.graph)
@@ -312,6 +289,7 @@ async def knowledge_graph(q: Q):
     escaped_graph_json = graph_json.replace("\\", "\\\\").replace("'", "\\'")
     fmt_script = script.format(data=escaped_graph_json)
 
+    # inject custom javascript code for displaying the knowledge graph
     q.page['meta'] = ui.meta_card(
         box='',
         script=ui.inline_script(content=fmt_script, requires=['d3'], targets=['#d3-chart']),
@@ -319,6 +297,7 @@ async def knowledge_graph(q: Q):
     )
 
     await q.page.save()
+
 
 def init(q: Q):
     q.page['meta'] = ui.meta_card(box='', title='AcademIQ', theme='nord', layouts=[
@@ -360,25 +339,13 @@ def init(q: Q):
     # GLOBAL VARS
     q.client.initialized = True
     q.client.selected_topics = set() # set of selected topics by user
-    # take the most recent collection in the API key
-    recent_collections = client.list_recent_collections(0, 1000)
-    for c in recent_collections:
-        if c.name == "AcademIQ":
-            q.client.collection_id = c.id
-            break
-    chat_session = client.list_chat_sessions_for_collection(q.client.collection_id, 0, 1)
-    # if no chat session has been created before
-    if len(chat_session) == 0:
-        q.client.chat_session_id = client.create_chat_session(q.client.collection_id)
-    else: # if there is an existing chat session
-        q.client.chat_session = chat_session[0]
-        q.client.chat_session_id = q.client.chat_session.id
     q.client.chatlog = []
 
 
 @app('/')
 async def serve(q: Q) -> None:
     if not q.client.initialized:
+        init_db() # initialise constraint on neo4j database
         init(q)
         await question_generator(q) # set question generator as initial page
     await run_on(q)
