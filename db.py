@@ -26,11 +26,15 @@ def create_topic(topic, graph, documents):
         if topic_node:
             summary = topic_node['summary']
             docnames = topic_node['documents']
+            if not docnames:
+                return
             # Create or merge the topic node
             session.run("MERGE (t:Topic {name: $name}) ON CREATE SET t.summary = $summary ON MATCH SET t.summary = $summary RETURN t", name=topic, summary=summary)
             # Create or merge the document nodes and create relationships
             for doc in docnames:
                 content = documents.get(doc, "")
+                if not content: # if not a valid document we skip
+                    continue
                 session.run("MERGE (d:Document {name: $name}) ON CREATE SET d.content = $content ON MATCH SET d.content = $content RETURN d", name=doc, content=content)
                 session.run("MATCH (t:Topic {name: $topic}), (d:Document {name: $doc}) MERGE (t)-[:TOPIC]->(d)", topic=topic, doc=doc)
 
@@ -50,10 +54,17 @@ def insert_graph(graph, documents):
 def get_documents_from_topics(topics):
     """Return list of tuples containing document name and list of string chunks. Takes in a string iterable representing the topics."""
     documents = []
+    added = set()
     with driver.session() as session:
         for topic in topics:
             result = session.run("MATCH (t:Topic {name: $topic})-[:TOPIC]->(d:Document) RETURN d.name AS name, d.content AS content", topic=topic)
-            documents.extend([(record["name"], record["content"]) for record in result])
+            for record in result:
+                name = record['name']
+                content = record['content']
+                if name not in added:
+                    documents.append((name, content))
+                    added.add(name)
+    
     return documents
 
 

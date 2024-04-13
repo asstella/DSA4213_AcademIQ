@@ -84,9 +84,6 @@ function render(graph) {{
         .attr("r", 25)
         .attr("fill", d => color(d.type))
         .call(drag(simulation));
-        
-    node.append("title")
-      .text(d => d.name);
 
     node.on("mouseover", function(event, d) {{
         tooltip.html(d.name)  // Set the tooltip content
@@ -159,9 +156,10 @@ summaries, and a list of existing topics. Give a JSON object with topics with 2 
 topics and edges. The topics attribute is an object with topic names as its keys, and an object \
 containing the attributes summary which is a string, and documents which is an array of files the topic\
 is found in. Please combine any topics that are found to be very similar to each other. If any topic is similar \
-to one that already exists, please rename it to match the existing topic. The source node is the parent of the target node.",
-        text_context_list=[json.dumps(doc_topics), get_all_topics()],
-        prompt_extract="Respond directly with a valid JSON object. Here is an example:\n" + topic_tree_format,
+to an existing topic, please rename it to the existing topic. The source node is the parent of the target node.\
+Please keep your response and final set of topics small.",
+        text_context_list=[json.dumps(doc_topics), "Existings Topics: " + get_all_topics()],
+        prompt_extract="Respond directly with a valid and compact JSON object. Here is an example:\n" + topic_tree_format,
         llm=llm
     )
     # insert graph into the neo4j database
@@ -173,6 +171,8 @@ to one that already exists, please rename it to match the existing topic. The so
             res = res[start:end + 1]
             insert_graph(json.loads(res), documents)
         except json.JSONDecodeError as e:
+            print(response.content)
+            print(f"Error: {e}")
             q.page['meta'].notification_bar = ui.notification_bar(
                 text=f"Error: {e}",
                 type='error',
@@ -189,13 +189,6 @@ to one that already exists, please rename it to match the existing topic. The so
 async def question_generator(q: Q):
     q.client.page = 'question_generator'
 
-    items = [ui.text_xl("Questions")]
-    
-    topic_items = [ui.text_xl('Topic(s) Selected:')]
-    # display selected topics
-    topic_items.extend([ui.text(topic) for topic in q.client.selected_topics])
-    q.page['top'] = ui.form_card(box='content', items=topic_items)
-
     q.page['about'] = ui.form_card(box='content', items=[
         ui.text(
         """### How to Use the Question Generator 
@@ -205,19 +198,19 @@ async def question_generator(q: Q):
             ),
         ])
 
+    items = [ui.text_xl("Questions")]
+    
+    topic_items = [ui.text_xl('Topic(s) Selected:')]
+    # display selected topics
+    topic_items.extend([ui.text(topic) for topic in q.client.selected_topics])
+    q.page['top'] = ui.form_card(box='content', items=topic_items)
+
     # when generate button is clicked and there are selected topics, generate questions
     if q.client.selected_topics and q.args.generate_button:
         try:
             chunks = ['\n'.join(chunk) for _, chunk in get_documents_from_topics(q.client.selected_topics)]
             q.client.qna = generate_questions(q.client.selected_topics, chunks)
-            # Display list of questions in markdown
-            for idx, qna in enumerate(q.client.qna):
-                markdown_content = f"**{idx + 1}. {qna['question']}**\n\n"
-                for i in range(1, 5):
-                    option_key = f"option {i}"
-                    if option_key in qna:
-                        markdown_content += f"{i}. {qna[option_key]}\n"
-                items.append(ui.text(markdown_content))
+            q.client.chatlog = [] # reset chat log for new set of questions
         except:
             q.page['meta'].notification_bar = ui.notification_bar(
                 text=f"Failed to generate question for topics {q.client.selected_topics}",
@@ -226,7 +219,16 @@ async def question_generator(q: Q):
             )
 
     # if there is already chat history or user has clicked generate, show chat interface
-    if q.client.chatlog or (q.args.generate_button and q.client.selected_topics):
+    if q.client.qna:
+        # Display list of questions in markdown
+        for idx, qna in enumerate(q.client.qna):
+            markdown_content = f"**{idx + 1}. {qna['question']}**\n\n"
+            for i in range(1, 5):
+                option_key = f"option {i}"
+                if option_key in qna:
+                    markdown_content += f"{i}. {qna[option_key]}\n"
+            items.append(ui.text(markdown_content))
+
         q.page['chat'] = ui.chatbot_card(
             box='content',
             name='chatbot',
@@ -291,6 +293,7 @@ explanations. Use this respond to user questions about the question or topic, an
 @on('graph.node_clicked')
 async def node_clicked(q: Q) -> None:
     topic = q.events.graph.node_clicked
+    q.client.curr_topic = topic
     # clicking on a document node should not update selected topics
     for node in q.client.graph['nodes']:
         if node['name'] == topic and node['type'] == 'topic':
@@ -307,11 +310,6 @@ async def knowledge_graph(q: Q):
     q.client.page = 'knowledge_graph'
     q.client.graph = get_knowledge_graph()
 
-    header_items = [ui.text_xl('Topic(s) Selected:')]
-    # display selected topics
-    header_items.extend([ui.text(topic) for topic in q.client.selected_topics])
-    q.page['top'] = ui.form_card(box='content', items=header_items)
-
     q.page['about'] = ui.form_card(box='content', items=[
         ui.text(
         """### How to Use the Knowledge Graph
@@ -323,8 +321,19 @@ async def knowledge_graph(q: Q):
         ),
     ])
 
+    header_items = [ui.text_xl('Topic(s) Selected:')]
+    # display selected topics
+    header_items.extend([ui.text(topic) for topic in q.client.selected_topics])
+    q.page['top'] = ui.form_card(box='content', items=header_items)
+
     content = '<div id="d3-chart" style="width: 100%; height: 100%"></div><div id="d3-tooltip" style="position: fixed; visibility: hidden; padding: 10px; background: #2E3541; border: 1px solid #ccc; border-radius: 5px; pointer-events: none;"></div>'
-    plot_items = [ui.markup(content=content)]
+    plot_items = []
+    if q.client.curr_topic and q.client.graph:
+        for node in q.client.graph['nodes']:
+            if node['type'] == "topic" and node['name'] == q.client.curr_topic:
+                plot_items.extend([ui.text_xl(node['name']), ui.text(node['content'])])
+                break
+    plot_items.append(ui.markup(content=content))
     q.page['body'] = ui.form_card(
         box='content',
         items=plot_items
