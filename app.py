@@ -327,13 +327,16 @@ async def knowledge_graph(q: Q):
     q.page['top'] = ui.form_card(box='content', items=header_items)
 
     content = '<div id="d3-chart" style="width: 100%; height: 100%"></div><div id="d3-tooltip" style="position: fixed; visibility: hidden; padding: 10px; background: #2E3541; border: 1px solid #ccc; border-radius: 5px; pointer-events: none;"></div>'
-    plot_items = []
-    if q.client.curr_topic and q.client.graph:
+    plot_items = [ui.markup(content=content)]
+    for topic_name in q.client.selected_topics:
+        # Find the corresponding node details from the graph
         for node in q.client.graph['nodes']:
-            if node['type'] == "topic" and node['name'] == q.client.curr_topic:
-                plot_items.extend([ui.text_xl(node['name']), ui.text(node['content'])])
-                break
-    plot_items.append(ui.markup(content=content))
+            if node['type'] == 'topic' and node['name'] == topic_name:
+                plot_items.extend([
+                    ui.text_xl(f"Topic: {node['name']}"),  
+                    ui.text(f"Summary: {node['content']}")  # Display topic summary 
+                ])
+
     q.page['body'] = ui.form_card(
         box='content',
         items=plot_items
@@ -353,7 +356,7 @@ async def knowledge_graph(q: Q):
 def init(q: Q):
     q.page['meta'] = ui.meta_card(box='', title='AcademIQ', theme='nord', layouts=[
         ui.layout(breakpoint='xs', 
-                  zones=[ui.zone('header', wrap='stretch'),
+                  zones=[ui.zone('header'),
                          ui.zone('body', direction=ui.ZoneDirection.ROW, size='1', zones=[
                                 ui.zone('sidebar', size='25%'),
                                 ui.zone('body2', direction=ui.ZoneDirection.COLUMN, zones=[ui.zone('nav'),
@@ -400,5 +403,5 @@ async def serve(q: Q) -> None:
     if not q.client.initialized:
         init_db() # initialise constraint on neo4j database
         init(q)
-        await knowledge_graph(q) # set question generator as initial page
+        await knowledge_graph(q) # set knowledge graph as initial page
     await run_on(q)

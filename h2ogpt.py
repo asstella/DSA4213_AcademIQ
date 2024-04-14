@@ -2,14 +2,14 @@ from h2ogpte import H2OGPTE
 import json
 from preprocessing import parse_file
 
-llm = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+llm = 'mistralai/Mixtral-8x7B-Instruct-v0.1' # 'mistral-large-latest'# "mistral-medium"
 system_prompt = "You are an expert at identifying the key concepts and topics within paragraphs \
 from academic documents, textbooks, and school notes of various formats. Always base your responses \
 on well established academic concepts and topics across various fields of study."
 
 client = H2OGPTE(
     address='https://h2ogpte.genai.h2o.ai',
-    api_key='sk-a25XDdP6vOOFGxYO1kmrNmVHrQpuGTqLx7pbJlgUqIhSadCI' # replace with ur own api key so can see when testing
+    api_key='sk-PZx6HXM0jsfJFWTHHfd0KJbVwVlnVSuKcPVwugbWaFk8ZokL' # replace with ur own api key so can see when testing
 )
 
 extract_topic_output_format = """
