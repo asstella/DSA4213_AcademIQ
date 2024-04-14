@@ -1,10 +1,10 @@
-# DSA4213 Project: Exam Assistant
+# Group group's DSA4213 Project: AcademIQ 
 
 This app allows you to easily generate summaries and practice questions for topics based on your school notes.
 
 ## Getting Started
 
-If you haven't created a python env yet, simply run the following command (assuming Python is installed properly).
+Create a python environment by running the following command (assuming Python is installed properly).
 
 For MacOS / Linux:
 
@@ -22,21 +22,21 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Once the virtual environment is setup and active, run the command to start the app:
+Once the virtual environment is setup and active, run the below command to start the app:
 
 ```sh
 wave run app.py
 ```
 
-Which will start a Wave app at <http://localhost:10101>.
+A Wave app will start at <http://localhost:10101>.
 
 ### Dependencies
 
-This app depends on other services that are defined in `docker-compose.yml`. Some of these
+This app depends on external services that are defined in `docker-compose.yml`. Some of these
 services will need to be started during development. Some examples include:
 
-- `db.py` and `upload_files()` in `app.py` relies on neo4j
-- `preprocessing.py` and `upload_files()` in `app.py` relise on nlm_ingestor
+- `db.py` and `upload_files()` in `app.py` which relies on neo4j
+- `preprocessing.py` and `upload_files()` in `app.py` which relies on nlm_ingestor
 
 Make sure the respective services are up and running using docker compose:
 
@@ -56,7 +56,7 @@ This will run the test functions prefixed with `test_` in the file.
 
 ## Interactive examples
 
-If you prefer learning by doing, you can run `wave fetch` command that will download all the existing small Python examples that show Wave in action. The best part is that all these examples are interactive, meaning you can edit their code directly within the browser and observe the changes.
+If you prefer hands-on learning, you can run `wave fetch` command that will download all the existing small Python examples that show Wave in action. The best part is that all these examples are interactive, meaning you can edit their code directly within the browser and observe the changes.
 
 ## Learn More
 
