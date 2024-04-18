@@ -15,7 +15,6 @@ services:
     image: ghcr.io/nlmatics/nlm-ingestor:latest
     ports:
       - "5001:5001"
-      - "5002:5002"
   h2o_wave_app:
     build:
       context: .

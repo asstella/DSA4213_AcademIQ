@@ -1,8 +1,17 @@
-# Group group's DSA4213 Project: AcademIQ 
+# 🎓  Group group's DSA4213 Project: AcademIQ 
+
+![ACADEMIQ](https://www.svgrepo.com/show/288267/studying-student.svg)
+
+<div align='center'>
+
 
 Introducing AcademIQ - your personal exam assistant designed to simplify your study experience and maximize your academic success. Simply upload any document and watch AcademIQ easily generate summaries and practice MCQ questions based on the different topics present in the documents. This app is suitable for both students and educators.
+</div>
 
-## File Structure
+# 🏛️ Solution Architecture
+![Solution architecture](architecture_overview.png)
+
+# 📁 File Structure
 
 **app.py** - Coding file containing the web application built using the H2O Wave framework. The application allows users to upload files (PDF, Word, PowerPoint, text, and Markdown) and generate a knowledge graph from the content of those files. Additionally, it provides a question generation feature based on selected topics from the knowledge graph. This file is executed to run the application, which will be accessible through a web browser at the specified URL.
 
@@ -16,8 +25,26 @@ Introducing AcademIQ - your personal exam assistant designed to simplify your st
 
 **Dockerfile** - A text document containing all the commands the user requires to call on the command line to assemble an image.
 
-## Development Guide
-### Getting Started
+# 🛠️ Tech stack
+
+1.**Neo4j**
+   - Graph Database Management System
+   - Fast, secure and scalable native graph database used to manage and query graph data . It uses graph structures with nodes, relationships, and properties to represent and store data.
+
+2 **Docker**
+   - Containerization Platform
+   - Platform that allows you to package, distribute, and run applications in isolated containers. It provides a consistent environment for applications to run, making it easier to deploy and manage software across different environments.
+
+3.**H2O Wave**
+   - Web Application Framework
+   - Python-based web application framework that simplifies the development of interactive data-driven applications. It provides tools for building interactive user interfaces (frontend)
+
+4.**H2OGPTE**
+   - Retrieval-Augmented Generation (RAG) Framework
+   - Pairs information retrieval with a set of carefully designed system prompts to anchor LLMs on precise, up-to-date, and important information retrieved from an external data store.
+
+# 🚀 Development Guide
+## Getting Started
 
 Ensure Docker is installed and running on your device.
 
@@ -29,7 +56,7 @@ docker compose up -d
 
 Head over to <http://localhost:10101> to start uploading.
 
-### To Set Up A Development Server / To Edit On Wave App
+## To Set Up A Development Server / To Edit On Wave App
 
 Create a python environment by running the following command (this is assuming Python is installed properly).
 
@@ -59,7 +86,7 @@ wave run app.py
 
 A Wave app will start at <http://localhost:10101>.
 
-### Dependencies
+## Dependencies
 
 This app depends on external services that are defined in `docker-compose.yml`. Some of these
 services will need to run during development. They include:
@@ -73,7 +100,7 @@ Ensure the respective services are up and running using docker compose:
 docker compose up -d <service_name>
 ```
 
-### Testing
+## Testing
 
 To run tests for specific files, run the command:
 
@@ -84,7 +111,7 @@ pytest <filename>
 This will run the test functions prefixed with `test_` in the file.
 
 
-## User Guide
+# 📘 User Guide
 
 Upload files by clicking on the *'Browse'* button in the Upload Files widget located on the left. Alternatively, files can be dragged and dropped within that area to be uploaded. File types that can be uploaded include PDF, Word Document (.docx), Powerpoint Presentation (.pptx), Text Files (.txt) and Markdown Files (.md).
 
@@ -100,7 +127,7 @@ Once the page has finished loading, multiple MCQ questions relevant to the topic
 
 To verify answers, scroll the page down to the chatbot and input your answers to the questions in the form of 'Question Number: Option Number' e.g., "Question 1: 3" or "For question 1, my answer is option 3." The chatbot will then check if the input answer is correct and provide an explanation.
 
-## Common Issues
+# 🐞 Common Issues
 
 - Error running H2O Wave on Docker for mac. \
 https://github.com/h2oai/wave/issues/2309
