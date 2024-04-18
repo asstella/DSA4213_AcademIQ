@@ -131,7 +131,9 @@ render(JSON.parse('{data}'));
 
 @on('upload_files')
 async def upload_files(q: Q) -> None:
-    """Triggered when user clicks the Upload button in the file upload widget."""
+    """
+    Triggered when user clicks the Upload button in the file upload widget.
+    """
     doc_topics = {}
     documents = {}
     # run the request topics in parallel to speed up execution
@@ -152,15 +154,15 @@ async def upload_files(q: Q) -> None:
     response = client.extract_data(
         system_prompt=system_prompt,
         pre_prompt_extract="Given this JSON object mapping filenames to a list of topics and \
-summaries, and a list of existing topics. Give a JSON object with topics with 2 attributes: \
-topics and edges. The topics attribute is an object with topic names as its keys, and an object \
-containing the attributes summary which is a string, and documents which is an array of files the topic\
-is found in. Please combine any topics that are found to be very similar to each other. If any topic is similar \
-to an existing topic, please rename it to the existing topic. The source node is the parent of the target node.\
-Ensure that all initial documents still exist in your final output.\ I know you have a huge temptation to end the \
-response in the middle of generating the JSON, but that is not a normal thing to do, and you absolutely \
-should produce a complete JSON and close off the ouput with }. \
-Please keep your response and final set of topics small.",
+        summaries, and a list of existing topics. Give a JSON object with topics with 2 attributes: \
+        topics and edges. The topics attribute is an object with topic names as its keys, and an object \
+        containing the attributes summary which is a string, and documents which is an array of files the topic\
+        is found in. Please combine any topics that are found to be very similar to each other. If any topic is similar \
+        to an existing topic, please rename it to the existing topic. The source node is the parent of the target node.\
+        Ensure that all initial documents still exist in your final output.\ I know you have a huge temptation to end the \
+        response in the middle of generating the JSON, but that is not a normal thing to do, and you absolutely \
+        should produce a complete JSON and close off the ouput with }. \
+        Please keep your response and final set of topics small.",
         text_context_list=[json.dumps(doc_topics), "Existings Topics: " + get_all_topics()],
         prompt_extract="Respond directly with a valid and compact JSON object. Here is an example:\n" + topic_tree_format,
         llm=llm
@@ -195,9 +197,9 @@ async def question_generator(q: Q):
     q.page['about'] = ui.form_card(box='content', items=[
         ui.text(
         """### How to Use the Question Generator 
-1. Click the *Generate* button to generate questions relevant to the selected topics
-2. Wait for the questions to be generated
-3. Use the chatbot to verify your answers for the generated questions"""
+        1. Click the *Generate* button to generate questions relevant to the selected topics
+        2. Wait for the questions to be generated
+        3. Use the chatbot to verify your answers for the generated questions"""
             ),
         ])
 
@@ -259,11 +261,11 @@ async def generate_button(q: Q):
 
 @on()
 async def chatbot(q: Q):
-    '''
+    """
     Chatbot for user to verify their answers to the questions generated.
     Triggers when user submits a query to the chatbot, q.args.chatbot store the
     string representation of user query.
-    '''
+    """
     # append user query to the chatlog and chat ui
     q.page['chat'].data += [q.args.chatbot, True]
     q.client.chatlog.append([q.args.chatbot, True])
@@ -316,10 +318,10 @@ async def knowledge_graph(q: Q):
     q.page['about'] = ui.form_card(box='content', items=[
         ui.text(
         """### How to Use the Knowledge Graph
-1. Upload one document or multiple documents
-2. Wait for the knowledge graph to be generated
-3. View the relationship between the documents and the topics
-4. Select any topics to view a summary or generate questions
+        1. Upload one document or multiple documents
+        2. Wait for the knowledge graph to be generated
+        3. View the relationship between the documents and the topics
+        4. Select any topics to view a summary or generate questions
         """
         ),
     ])

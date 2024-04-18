@@ -1,13 +1,20 @@
 # 🎓  Group group's DSA4213 Project: AcademIQ 
 
-![ACADEMIQ](https://www.svgrepo.com/show/288267/studying-student.svg)
 
+<h2 align="center">
+    <a href="https://httpie.io" target="blank_">
+        <img alt="AcademIQ" src="https://www.svgrepo.com/show/288267/studying-student.svg" width="200" height="200" />
+    </a>
+    <br>
+    AcademIQ - Simplify your study experience and maximize your academic success!
+</h2>
+
+---
 <div align='center'>
-
-
-Introducing AcademIQ - your personal exam assistant designed to simplify your study experience and maximize your academic success. Simply upload any document and watch AcademIQ easily generate summaries and practice MCQ questions based on the different topics present in the documents. This app is suitable for both students and educators.
+AcademIQ (Pronounced as academic) serves as an invaluable exam companion, enhancing your exam readiness. Simply upload any document and watch it generate summaries, knowledge graphs and practice MCQ questions based on the different topics present in the documents. Ideal for students and educators alike, AcademIQ redefines learning as an exciting journey of learning.
 </div>
 
+---
 # 🏛️ Solution Architecture
 ![Solution architecture](architecture_overview.png)
 
@@ -37,7 +44,7 @@ Introducing AcademIQ - your personal exam assistant designed to simplify your st
 
 3.**H2O Wave**
    - Web Application Framework
-   - Python-based web application framework that simplifies the development of interactive data-driven applications. It provides tools for building interactive user interfaces (frontend)
+   - Python-based web application framework that simplifies the development of interactive data-driven applications. It provides tools for building interactive user interfaces (Frontend)
 
 4.**H2OGPTE**
    - Retrieval-Augmented Generation (RAG) Framework
