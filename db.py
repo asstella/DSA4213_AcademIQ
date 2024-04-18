@@ -139,6 +139,11 @@ def get_knowledge_graph():
 
     return {"nodes": nodes, "edges": edges}
 
+
+def delete_all_files():
+    with driver.session() as session:
+        session.run('MATCH (n) DETACH DELETE n')
+
 def test_insert_graph():
     documents = {
         "file1.pdf": ["pdf stuff"],

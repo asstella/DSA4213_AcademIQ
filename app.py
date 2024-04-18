@@ -1,7 +1,7 @@
 from h2o_wave import main, app, Q, ui, on, run_on, site, data
 from preprocessing import parse_file
 from h2ogpt import extract_topics, client, generate_questions, system_prompt, llm, topic_tree_format
-from db import get_all_topics, get_documents_from_topics, get_knowledge_graph, init_db, insert_graph
+from db import get_all_topics, get_documents_from_topics, get_knowledge_graph, init_db, insert_graph, delete_all_files
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 
@@ -154,15 +154,15 @@ async def upload_files(q: Q) -> None:
     response = client.extract_data(
         system_prompt=system_prompt,
         pre_prompt_extract="Given this JSON object mapping filenames to a list of topics and \
-        summaries, and a list of existing topics. Give a JSON object with topics with 2 attributes: \
-        topics and edges. The topics attribute is an object with topic names as its keys, and an object \
-        containing the attributes summary which is a string, and documents which is an array of files the topic\
-        is found in. Please combine any topics that are found to be very similar to each other. If any topic is similar \
-        to an existing topic, please rename it to the existing topic. The source node is the parent of the target node.\
-        Ensure that all initial documents still exist in your final output.\ I know you have a huge temptation to end the \
-        response in the middle of generating the JSON, but that is not a normal thing to do, and you absolutely \
-        should produce a complete JSON and close off the ouput with }. \
-        Please keep your response and final set of topics small.",
+summaries, and a list of existing topics. Give a JSON object with topics with 2 attributes: \
+topics and edges. The topics attribute is an object with topic names as its keys, and an object \
+containing the attributes summary which is a string, and documents which is an array of files the topic\
+is found in. Please combine any topics that are found to be very similar to each other. If any topic is similar \
+to an existing topic, please rename it to the existing topic. The source node is the parent of the target node.\
+Ensure that all initial documents still exist in your final output.\ I know you have a huge temptation to end the \
+response in the middle of generating the JSON, but that is not a normal thing to do, and you absolutely \
+should produce a complete JSON and close off the ouput with }. \
+Please keep your response and final set of topics small.",
         text_context_list=[json.dumps(doc_topics), "Existings Topics: " + get_all_topics()],
         prompt_extract="Respond directly with a valid and compact JSON object. Here is an example:\n" + topic_tree_format,
         llm=llm
@@ -358,6 +358,23 @@ async def knowledge_graph(q: Q):
     await q.page.save()
 
 
+@on('delete_old_files')  
+async def upload_files_and_delete_old(q: Q):
+    """
+    Triggered when the user clicks the Delete All Old Files button.
+    """
+    delete_all_files()
+    q.client.selected_topics = set()
+    q.client.chatlog = []
+    q.client.qna = None
+
+    if q.client.page == 'question_generator':
+        await question_generator(q)
+    elif q.client.page == 'knowledge_graph':
+        await knowledge_graph(q)
+
+
+
 def init(q: Q):
     q.page['meta'] = ui.meta_card(box='', title='AcademIQ', theme='nord', layouts=[
         ui.layout(breakpoint='xs', 
@@ -386,7 +403,8 @@ def init(q: Q):
                 multiple=True,
                 required=True,
                 file_extensions=['pdf', 'docx', 'pptx', 'txt', 'md'],
-            ),
+            ), 
+            ui.button(name='delete_old_files', label='Delete All Old Files', primary=True)
         ]
     )
     q.page['nav'] = ui.tab_card(
