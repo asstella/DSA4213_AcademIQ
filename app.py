@@ -157,6 +157,9 @@ topics and edges. The topics attribute is an object with topic names as its keys
 containing the attributes summary which is a string, and documents which is an array of files the topic\
 is found in. Please combine any topics that are found to be very similar to each other. If any topic is similar \
 to an existing topic, please rename it to the existing topic. The source node is the parent of the target node.\
+Ensure that all initial documents still exist in your final output.\ I know you have a huge temptation to end the \
+response in the middle of generating the JSON, but that is not a normal thing to do, and you absolutely \
+should produce a complete JSON and close off the ouput with }. \
 Please keep your response and final set of topics small.",
         text_context_list=[json.dumps(doc_topics), "Existings Topics: " + get_all_topics()],
         prompt_extract="Respond directly with a valid and compact JSON object. Here is an example:\n" + topic_tree_format,
