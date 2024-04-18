@@ -1,8 +1,36 @@
 # Group group's DSA4213 Project: AcademIQ 
 
+![ACADEMIQ](https://www.svgrepo.com/show/288267/studying-student.svg)
+
+<div align='center'>
+
+
 Introducing AcademIQ - your personal exam assistant designed to simplify your study experience and maximize your academic success. Simply upload any document and watch AcademIQ easily generate summaries and practice MCQ questions based on the different topics present in the documents. This app is suitable for both students and educators.
 
-## To Start
+</div>
+
+# Tech stack
+
+1.**Neo4j**
+   - Graph Database Management System
+   - Fast, secure and scalable native graph database used to manage and query graph data . It uses graph structures with nodes, relationships, and properties to represent and store data.
+
+2 **Docker**
+   - Containerization Platform
+   - Platform that allows you to package, distribute, and run applications in isolated containers. It provides a consistent environment for applications to run, making it easier to deploy and manage software across different environments.
+
+3.**H2O Wave**
+   - Web Application Framework
+   - Python-based web application framework that simplifies the development of interactive data-driven applications. It provides tools for building interactive user interfaces (frontend)
+
+4.**H2OGPTE**
+   - Retrieval-Augmented Generation (RAG) Framework
+   - Pairs information retrieval with a set of carefully designed system prompts to anchor LLMs on precise, up-to-date, and important information retrieved from an external data store.
+
+# Solution Architecture
+![Solution architecture](architecture_overview.png)
+
+# To Start
 
 Ensure Docker is installed and running on your device.
 
@@ -14,7 +42,7 @@ docker compose up -d
 
 Head over to <http://localhost:10101> to start uploading.
 
-## To Use
+# To Use
 
 Upload files by clicking on the 'Browse' button in the Upload Files widget located on the left. Alternatively, files can be dragged and dropped within that area to be uploaded. File types that can be uploaded include PDF, Word Document (.docx), Powerpoint Presentation (.pptx), Text Files (.txt) and Markdown Files (.md).
 
@@ -31,7 +59,7 @@ Once the page has finished loading, multiple MCQ questions relevant to the topic
 To verify answers, scroll the page down to the chatbot and input your answers to the questions in the form of 'Question Number: Option Number' e.g., "Question 1: 3" or "For question 1, my answer is option 3." The chatbot will then check if the input answer is correct and provide an explanation.
 
 
-## To Set Up A Development Server / To Edit On Wave App
+# To Set Up A Development Server / To Edit On Wave App
 
 Create a python environment by running the following command (this is assuming Python is installed properly).
 
@@ -61,7 +89,7 @@ wave run app.py
 
 A Wave app will start at <http://localhost:10101>.
 
-### Dependencies
+## Dependencies
 
 This app depends on external services that are defined in `docker-compose.yml`. Some of these
 services will need to run during development. They include:
