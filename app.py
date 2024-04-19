@@ -133,6 +133,7 @@ render(JSON.parse('{data}'));
 async def upload_files(q: Q) -> None:
     """
     Triggered when user clicks the Upload button in the file upload widget.
+    Uploads file and updates database
     """
     doc_topics = {}
     documents = {}
@@ -192,6 +193,9 @@ Please keep your response and final set of topics small.",
 
 @on()
 async def question_generator(q: Q):
+    """
+    Shows question generator chat interface and generates questions
+    """
     q.client.page = 'question_generator'
 
     q.page['about'] = ui.form_card(box='content', items=[
@@ -250,6 +254,9 @@ async def question_generator(q: Q):
 
 @on()
 async def generate_button(q: Q):
+    """
+    Handles logic for the topic selection display.
+    """
     if not q.client.selected_topics:
         q.page['meta'] = ui.meta_card(box='', notification_bar=ui.notification_bar(
             text='No topic selected!',
@@ -297,6 +304,9 @@ explanations. Use this respond to user questions about the question or topic, an
 
 @on('graph.node_clicked')
 async def node_clicked(q: Q) -> None:
+    """
+    Makes sure the topic selected shows the nodes clicked
+    """
     topic = q.events.graph.node_clicked
     q.client.curr_topic = topic
     # clicking on a document node should not update selected topics
@@ -311,6 +321,9 @@ async def node_clicked(q: Q) -> None:
 
 @on()
 async def knowledge_graph(q: Q):
+    """
+    Displays the Knowledge Graph and topic summary 
+    """
     del q.page['chat']
     q.client.page = 'knowledge_graph'
     q.client.graph = get_knowledge_graph()
@@ -423,6 +436,9 @@ def init(q: Q):
 
 @app('/')
 async def serve(q: Q) -> None:
+    """
+    Initialises the application
+    """
     if not q.client.initialized:
         init_db() # initialise constraint on neo4j database
         init(q)

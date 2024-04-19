@@ -141,6 +141,9 @@ def get_knowledge_graph():
 
 
 def delete_all_files():
+    """
+    Deletes all the nodes, relationships and resets the database
+    """
     with driver.session() as session:
         session.run('MATCH (n) DETACH DELETE n')
 

@@ -9,7 +9,7 @@ on well established academic concepts and topics across various fields of study.
 
 client = H2OGPTE(
     address='https://h2ogpte.genai.h2o.ai',
-    api_key='sk-PZx6HXM0jsfJFWTHHfd0KJbVwVlnVSuKcPVwugbWaFk8ZokL' # replace with ur own api key so can see when testing
+    api_key='sk-PZx6HXM0jsfJFWTHHfd0KJbVwVlnVSuKcPVwugbWaFk8ZokL' # replace with ur own api key to test
 )
 
 extract_topic_output_format = """
