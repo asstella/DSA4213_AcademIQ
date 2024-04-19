@@ -15,10 +15,24 @@ AcademIQ (Pronounced as academic) serves as an invaluable exam companion, enhanc
 </div>
 
 ---
-# 🏛️ Solution Architecture
+# Table of Contents
+
+1) [🏛️ Solution Architecture](#solution-architecture)
+2) [📁 File Structure](#file-structure)
+3) [🛠️ Tech stack](#tech-stack)
+4) [🚀 Development Guide](#dev-guide)
+   - [Getting Started](#get-started)
+   - [To Set Up A Development Server / To Edit On Wave App](#set-up)
+   - [Dependencies](#dependencies)
+   - [Testing](#testing)
+5) [📘 User Guide](#user-guide)
+6) [🐞 Common Issues](#common-issues)
+
+
+# 🏛️ Solution Architecture <a name="solution-architecture"></a>
 ![Solution architecture](architecture_overview.png)
 
-# 📁 File Structure
+# 📁 File Structure <a name="file-structure"></a>
 
 **app.py** - Coding file containing the web application built using the H2O Wave framework. The application allows users to upload files (PDF, Word, PowerPoint, text, and Markdown) and generate a knowledge graph from the content of those files. Additionally, it provides a question generation feature based on selected topics from the knowledge graph. This file is executed to run the application, which will be accessible through a web browser at the specified URL.
 
@@ -32,7 +46,7 @@ AcademIQ (Pronounced as academic) serves as an invaluable exam companion, enhanc
 
 **Dockerfile** - A text document containing all the commands the user requires to call on the command line to assemble an image.
 
-# 🛠️ Tech stack
+# 🛠️ Tech stack <a name="tech-stack"></a>
 
 1.**Neo4j**
    - Graph Database Management System
@@ -50,8 +64,8 @@ AcademIQ (Pronounced as academic) serves as an invaluable exam companion, enhanc
    - Retrieval-Augmented Generation (RAG) Framework
    - Pairs information retrieval with a set of carefully designed system prompts to anchor LLMs on precise, up-to-date, and important information retrieved from an external data store.
 
-# 🚀 Development Guide
-## Getting Started
+# 🚀 Development Guide <a name="dev-guide"></a>
+## Getting Started <a name="get-started"></a>
 
 Ensure Docker is installed and running on your device.
 
@@ -63,7 +77,7 @@ docker compose up -d
 
 Head over to <http://localhost:10101> to start uploading.
 
-## To Set Up A Development Server / To Edit On Wave App
+## To Set Up A Development Server / To Edit On Wave App <a name="set-up"></a>
 
 Create a python environment by running the following command (this is assuming Python is installed properly).
 
@@ -84,7 +98,6 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-
 Once the virtual environment is setup and active, run the below command to start the app:
 
 ```sh
@@ -93,7 +106,7 @@ wave run app.py
 
 A Wave app will start at <http://localhost:10101>.
 
-## Dependencies
+## Dependencies <a name="dependencies"></a>
 
 This app depends on external services that are defined in `docker-compose.yml`. Some of these
 services will need to run during development. They include:
@@ -107,7 +120,7 @@ Ensure the respective services are up and running using docker compose:
 docker compose up -d <service_name>
 ```
 
-## Testing
+## Testing <a name="testing"></a>
 
 To run tests for specific files, run the command:
 
@@ -117,8 +130,7 @@ pytest <filename>
 
 This will run the test functions prefixed with `test_` in the file.
 
-
-# 📘 User Guide
+# 📘 User Guide <a name="user-guide"></a>
 
 Upload files by clicking on the *'Browse'* button in the Upload Files widget located on the left. Alternatively, files can be dragged and dropped within that area to be uploaded. File types that can be uploaded include PDF, Word Document (.docx), Powerpoint Presentation (.pptx), Text Files (.txt) and Markdown Files (.md).
 
@@ -134,7 +146,7 @@ Once the page has finished loading, multiple MCQ questions relevant to the topic
 
 To verify answers, scroll the page down to the chatbot and input your answers to the questions in the form of 'Question Number: Option Number' e.g., "Question 1: 3" or "For question 1, my answer is option 3." The chatbot will then check if the input answer is correct and provide an explanation.
 
-# 🐞 Common Issues
+# 🐞 Common Issues <a name="common-issues"></a>
 
 - Error running H2O Wave on Docker for mac. \
 https://github.com/h2oai/wave/issues/2309
