@@ -2,7 +2,7 @@ from h2ogpte import H2OGPTE
 import json
 from preprocessing import parse_file
 
-llm = 'mistralai/Mixtral-8x7B-Instruct-v0.1' # 'mistral-large-latest'# "mistral-medium"
+llm = 'mistral-large-latest' # "mistral-medium" # "mistralai/Mixtral-8x7B-Instruct-v0.1"
 system_prompt = "You are an expert at identifying the key concepts and topics within paragraphs \
 from academic documents, textbooks, and school notes of various formats. Always base your responses \
 on well established academic concepts and topics across various fields of study."

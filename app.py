@@ -197,9 +197,9 @@ async def question_generator(q: Q):
     q.page['about'] = ui.form_card(box='content', items=[
         ui.text(
         """### How to Use the Question Generator 
-        1. Click the *Generate* button to generate questions relevant to the selected topics
-        2. Wait for the questions to be generated
-        3. Use the chatbot to verify your answers for the generated questions"""
+1. Click the *Generate* button to generate questions relevant to the selected topics
+2. Wait for the questions to be generated
+3. Use the chatbot to verify your answers for the generated questions"""
             ),
         ])
 
@@ -318,10 +318,10 @@ async def knowledge_graph(q: Q):
     q.page['about'] = ui.form_card(box='content', items=[
         ui.text(
         """### How to Use the Knowledge Graph
-        1. Upload one document or multiple documents
-        2. Wait for the knowledge graph to be generated
-        3. View the relationship between the documents and the topics
-        4. Select any topics to view a summary or generate questions
+1. Upload one document or multiple documents
+2. Wait for the knowledge graph to be generated
+3. View the relationship between the documents and the topics
+4. Select any topics to view a summary or generate questions
         """
         ),
     ])
@@ -376,7 +376,7 @@ async def upload_files_and_delete_old(q: Q):
 
 
 def init(q: Q):
-    q.page['meta'] = ui.meta_card(box='', title='AcademIQ', theme='nord', layouts=[
+    q.page['meta'] = ui.meta_card(box='', title='AcademIQ', theme='nord', icon='https://www.svgrepo.com/show/288267/studying-student.svg', layouts=[
         ui.layout(breakpoint='xs', 
                   zones=[ui.zone('header'),
                          ui.zone('body', direction=ui.ZoneDirection.ROW, size='1', zones=[
